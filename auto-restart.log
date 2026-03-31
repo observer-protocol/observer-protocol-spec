@@ -1,0 +1,1 @@
+./auto-restart.sh: line 27: 2542400 Killed                  nohup /usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 > api.log 2>&1

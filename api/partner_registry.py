@@ -8,27 +8,31 @@ Manages partner registration, verification, and attestation issuance.
 
 import json
 import hashlib
+import os
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 import psycopg2
 import psycopg2.extras
-import sys
-sys.path.insert(0, '/home/futurebit/.openclaw/workspace/observer-protocol')
 from crypto_verification import (
     verify_signature,
     detect_key_type,
     cache_public_key
 )
 
-DB_URL = "postgresql://agentic_terminal:at_secure_2026@localhost/agentic_terminal_db"
+
+def _get_db_url() -> str:
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        raise RuntimeError("DATABASE_URL environment variable is not set.")
+    return url
 
 
 class PartnerRegistry:
     """Manages partner registration and attestations."""
-    
-    def __init__(self, db_url: str = DB_URL):
-        self.db_url = db_url
+
+    def __init__(self, db_url: Optional[str] = None):
+        self.db_url = db_url or _get_db_url()
     
     def _get_db_connection(self):
         """Get database connection."""
@@ -229,14 +233,22 @@ class PartnerRegistry:
                 FROM partner_registry
                 WHERE partner_id = %s
             """, (partner_id,))
-            
+
             partner = cursor.fetchone()
             if not partner:
                 raise ValueError(f"Partner {partner_id} not found")
-            
+
             if not partner['is_active']:
                 raise ValueError(f"Partner {partner_id} is not active")
-            
+
+            # Look up agent_did for use in the attestation payload (Layer 5)
+            cursor.execute(
+                "SELECT agent_did FROM observer_agents WHERE agent_id = %s",
+                (agent_id,),
+            )
+            agent_row = cursor.fetchone()
+            agent_did = agent_row['agent_did'] if agent_row and agent_row['agent_did'] else None
+
             # If no credential_id provided, get or create active VAC
             if not credential_id:
                 cursor.execute("""
@@ -248,7 +260,7 @@ class PartnerRegistry:
                     ORDER BY issued_at DESC
                     LIMIT 1
                 """, (agent_id,))
-                
+
                 cred_row = cursor.fetchone()
                 if cred_row:
                     credential_id = cred_row['credential_id']
@@ -256,21 +268,26 @@ class PartnerRegistry:
                     # Generate new VAC (requires vac_generator)
                     from vac_generator import VACGenerator
                     generator = VACGenerator()
-                    vac = generator.generate_vac(agent_id, include_extensions=False)
-                    credential_id = vac.credential_id
+                    vp = generator.generate_vac(agent_id, include_extensions=False)
+                    # Extract credential_id from embedded VC (strip urn:uuid: prefix for UUID column)
+                    vcs = vp.get("verifiableCredential", [])
+                    raw_id = vcs[0].get("id", "") if vcs else ""
+                    credential_id = raw_id.removeprefix("urn:uuid:") if raw_id else None
             
             # Calculate expiration
             expires_at = None
             if expires_in_days:
                 expires_at = datetime.utcnow() + timedelta(days=expires_in_days)
             
-            # Create attestation hash
+            # Create attestation hash — include agent_did when available
             attestation_data = {
                 "partner_id": partner_id,
                 "agent_id": agent_id,
                 "claims": claims,
-                "issued_at": datetime.utcnow().isoformat()
+                "issued_at": datetime.utcnow().isoformat(),
             }
+            if agent_did:
+                attestation_data["agent_did"] = agent_did
             attestation_hash = hashlib.sha256(
                 json.dumps(attestation_data, sort_keys=True).encode()
             ).hexdigest()
@@ -300,16 +317,20 @@ class PartnerRegistry:
             result = cursor.fetchone()
             conn.commit()
             
-            return {
+            resp = {
                 "attestation_id": str(result['attestation_id']),
-                "credential_id": credential_id,
+                "credential_id": str(credential_id) if credential_id else None,
                 "partner_id": partner_id,
                 "agent_id": agent_id,
                 "claims": claims,
                 "issued_at": result['issued_at'].isoformat(),
-                "expires_at": expires_at.isoformat() if expires_at else None,
-                "attestation_hash": attestation_hash
+                "attestation_hash": attestation_hash,
             }
+            if agent_did:
+                resp["agent_did"] = agent_did
+            if expires_at:
+                resp["expires_at"] = expires_at.isoformat()
+            return resp
             
         except Exception as e:
             conn.rollback()
@@ -329,7 +350,7 @@ class PartnerRegistry:
         
         try:
             query = """
-                SELECT 
+                SELECT
                     pa.attestation_id,
                     pa.credential_id,
                     pa.claims,
@@ -338,10 +359,12 @@ class PartnerRegistry:
                     pa.attestation_hash,
                     pr.partner_id,
                     pr.partner_name,
-                    pr.partner_type
+                    pr.partner_type,
+                    oa.agent_did
                 FROM partner_attestations pa
                 JOIN vac_credentials vc ON vc.credential_id = pa.credential_id
                 JOIN partner_registry pr ON pr.partner_id = pa.partner_id
+                LEFT JOIN observer_agents oa ON oa.agent_id = vc.agent_id
                 WHERE vc.agent_id = %s
                   AND vc.is_revoked = FALSE
             """
@@ -355,17 +378,25 @@ class PartnerRegistry:
             
             cursor.execute(query, params)
             
-            return [{
-                "attestation_id": str(row['attestation_id']),
-                "credential_id": row['credential_id'],
-                "partner_id": str(row['partner_id']),
-                "partner_name": row['partner_name'],
-                "partner_type": row['partner_type'],
-                "claims": row['claims'],
-                "issued_at": row['issued_at'].isoformat(),
-                "expires_at": row['expires_at'].isoformat() if row['expires_at'] else None,
-                "attestation_hash": row['attestation_hash']
-            } for row in cursor.fetchall()]
+            rows = cursor.fetchall()
+            result_list = []
+            for row in rows:
+                entry: Dict[str, Any] = {
+                    "attestation_id": str(row['attestation_id']),
+                    "credential_id": str(row['credential_id']) if row['credential_id'] else None,
+                    "partner_id": str(row['partner_id']),
+                    "partner_name": row['partner_name'],
+                    "partner_type": row['partner_type'],
+                    "claims": row['claims'],
+                    "issued_at": row['issued_at'].isoformat(),
+                    "attestation_hash": row['attestation_hash'],
+                }
+                if row['agent_did']:
+                    entry["agent_did"] = row['agent_did']
+                if row['expires_at']:
+                    entry["expires_at"] = row['expires_at'].isoformat()
+                result_list.append(entry)
+            return result_list
             
         finally:
             cursor.close()
@@ -489,32 +520,33 @@ def issue_corpo_attestation(
     partner_id: str,
     agent_id: str,
     legal_entity_id: str,
+    attestation_signature: Optional[str] = None,
     jurisdiction: Optional[str] = None,
     compliance_status: Optional[str] = None,
-    **additional_claims
 ) -> Dict[str, Any]:
     """
     Issue a Corpo legal entity attestation.
-    
-    This attaches the legal_entity_id to the agent's VAC via partner attestations.
+
+    Attaches legal_entity_id to the agent's VAC via partner attestations.
     Per v0.3 spec, legal_entity_id is moved from agent table to extensions.
+
+    Bug fix: attestation_signature was previously swallowed into **additional_claims
+    and never forwarded to registry.issue_attestation(), causing every call to fail
+    with "Attestation signature required".
     """
     registry = PartnerRegistry()
-    
-    claims = {
-        "legal_entity_id": legal_entity_id,
-        **additional_claims
-    }
-    
+
+    claims: Dict[str, Any] = {"legal_entity_id": legal_entity_id}
     if jurisdiction:
         claims["jurisdiction"] = jurisdiction
     if compliance_status:
         claims["compliance_status"] = compliance_status
-    
+
     return registry.issue_attestation(
         partner_id=partner_id,
         agent_id=agent_id,
-        claims=claims
+        claims=claims,
+        attestation_signature=attestation_signature,
     )
 
 

@@ -1,0 +1,44 @@
+═══════════════════════════════════════════════════════════════
+OBSERVER PROTOCOL — INTERNAL TEST REPORT
+Run at:       2026-03-31T00:05:12.763614+00:00
+Node:         FutureBit-Solo-Node
+API:          http://localhost:8000
+Protocol:     v1.1
+═══════════════════════════════════════════════════════════════
+
+Group 1 — DID Resolution
+  T01  OP DID Document resolves                               PASS  (0.03s)
+  T02  Agent DID Document resolves                            PASS  (0.19s)
+  T03  Key rotation preserves DID, updates key                PASS  (0.12s)
+  T04  Historical VC verifiable after key rotation            PASS  (0.00s)
+
+Group 2 — Verifiable Credential
+  T05  VC issued with correct W3C structure                   PASS  (0.17s)
+  T06  VC signature is real Ed25519 (not a stub)              PASS  (0.00s)
+  T07  Tampered VC fails verification                         PASS  (0.00s)
+  T08  OrgMembershipCredential issued and verifiable          PASS  (0.00s)
+
+Group 3 — Verifiable Presentation
+  T09  VP assembles with correct W3C structure                PASS  (0.05s)
+  T10  VP signature verifies (agent-signed)                   PASS  (0.19s)
+  T11  Selective disclosure — subset VP verifies              PASS  (0.02s)
+  T12  Tampered VP fails verification                         PASS  (0.01s)
+
+Group 4 — Stateless Verification
+  T13  VP verifies with no DB record (stateless)              PASS  (0.01s)
+  T14  VP reconstruct from cache                              PASS  (0.11s)
+
+Group 5 — Trusted Issuers & KYB
+  T15  KYBCredential from trusted issuer accepted             PASS  (0.01s)
+  T16  KYBCredential from unknown issuer flagged              PASS  (0.01s)
+  T17  Cryptographically invalid credential rejected          PASS  (0.01s)
+
+Group 6 — Infrastructure
+  T18  No hardcoded credentials in codebase                   PASS  (0.02s)
+  T19  All required env vars present                          PASS  (0.00s)
+  T20  API health and DB connectivity                         PASS  (0.07s)
+
+═══════════════════════════════════════════════════════════════
+SUMMARY: 20/20 tests passed   (1.0s total)
+All tests PASSED.
+═══════════════════════════════════════════════════════════════

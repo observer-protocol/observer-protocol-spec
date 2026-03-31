@@ -18,10 +18,9 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 
 # Database configuration
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql://agentic_terminal:at_secure_2026@localhost/agentic_terminal_db"
-)
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL environment variable is not set.")
 
 # ============================================================================
 # Pydantic Models
@@ -1295,8 +1294,8 @@ import base64
 import json
 
 LND_HOST = os.environ.get("LND_HOST", "https://localhost:8080")
-LND_MACAROON_PATH = os.environ.get("LND_MACAROON_PATH", "/media/nvme/lnd-data/data/chain/bitcoin/mainnet/admin.macaroon")
-LND_TLS_CERT_PATH = os.environ.get("LND_TLS_CERT_PATH", "/media/nvme/lnd-data/tls.cert")
+LND_MACAROON_PATH = os.environ.get("LND_MACAROON_PATH")
+LND_TLS_CERT_PATH = os.environ.get("LND_TLS_CERT_PATH")
 
 def get_lnd_macaroon():
     """Load LND macaroon from file."""

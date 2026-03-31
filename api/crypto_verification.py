@@ -231,13 +231,15 @@ def verify_signature_simple(message: bytes, signature_hex: str, public_key_hex: 
 # and maintain an in-memory cache for performance. Database is the source of truth.
 
 _PUBLIC_KEY_CACHE = {}
-_DB_URL = "postgresql://agentic_terminal:at_secure_2026@localhost/agentic_terminal_db"
 
 
 def _get_db_connection():
-    """Get a database connection."""
-    import psycopg2
-    return psycopg2.connect(_DB_URL)
+    """Get a database connection using DATABASE_URL env var."""
+    import os, psycopg2
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        raise RuntimeError("DATABASE_URL environment variable is not set.")
+    return psycopg2.connect(db_url)
 
 
 def persist_public_key(agent_id: str, public_key_hex: str, verified: bool = False) -> bool:

@@ -1,0 +1,174 @@
+{
+  "run_at": "2026-03-31T00:04:19.389643+00:00",
+  "node": "FutureBit-Solo-Node",
+  "api": "http://localhost:8000",
+  "protocol_version": "v1.1",
+  "summary": {
+    "passed": 17,
+    "total": 20,
+    "elapsed_s": 0.65,
+    "all_passed": false
+  },
+  "results": [
+    {
+      "id": "T01",
+      "name": "OP DID Document resolves",
+      "passed": true,
+      "elapsed_s": 0.033,
+      "error": null,
+      "detail": null
+    },
+    {
+      "id": "T02",
+      "name": "Agent DID Document resolves",
+      "passed": true,
+      "elapsed_s": 0.145,
+      "error": null,
+      "detail": "agent_id=1cd3673015f7da2224b18d8ae55ab97f, did=did:web:observerprotocol.org:agents:1cd3673015f7da2224b18d8ae55ab97f"
+    },
+    {
+      "id": "T03",
+      "name": "Key rotation preserves DID, updates key",
+      "passed": true,
+      "elapsed_s": 0.114,
+      "error": null,
+      "detail": "DID: did:web:observerprotocol.org:agents:1cd3673015f7da2224b18d8ae55ab97f, key rotated successfully"
+    },
+    {
+      "id": "T04",
+      "name": "Historical VC verifiable after key rotation",
+      "passed": true,
+      "elapsed_s": 0.002,
+      "error": null,
+      "detail": "VC id=urn:uuid:7bc9761a-d2d1-4f30-bc8e-3fa1a270cdbc, verification: ok"
+    },
+    {
+      "id": "T05",
+      "name": "VC issued with correct W3C structure",
+      "passed": true,
+      "elapsed_s": 0.035,
+      "error": null,
+      "detail": "VC id=urn:uuid:02af517a-2184-4517-9d05-6c658ba04f08"
+    },
+    {
+      "id": "T06",
+      "name": "VC signature is real Ed25519 (not a stub)",
+      "passed": true,
+      "elapsed_s": 0.001,
+      "error": null,
+      "detail": "Verified 406-byte canonical VC against OP public key"
+    },
+    {
+      "id": "T07",
+      "name": "Tampered VC fails verification",
+      "passed": true,
+      "elapsed_s": 0.001,
+      "error": null,
+      "detail": "Correctly rejected: Ed25519 signature verification failed"
+    },
+    {
+      "id": "T08",
+      "name": "OrgMembershipCredential issued and verifiable",
+      "passed": true,
+      "elapsed_s": 0.001,
+      "error": null,
+      "detail": "OrgMembershipCredential from did:web:observerprotocol.org:orgs:63ba2b5f81a6e5bf, verified ok"
+    },
+    {
+      "id": "T09",
+      "name": "VP assembles with correct W3C structure",
+      "passed": false,
+      "elapsed_s": 0.034,
+      "error": "HTTP status: expected 200, got 403",
+      "detail": null
+    },
+    {
+      "id": "T10",
+      "name": "VP signature verifies (agent-signed)",
+      "passed": false,
+      "elapsed_s": 0.034,
+      "error": "HTTP status: expected 200, got 403",
+      "detail": null
+    },
+    {
+      "id": "T11",
+      "name": "Selective disclosure \u2014 subset VP verifies",
+      "passed": true,
+      "elapsed_s": 0.011,
+      "error": null,
+      "detail": "Single-VC VP verified, valid=True"
+    },
+    {
+      "id": "T12",
+      "name": "Tampered VP fails verification",
+      "passed": true,
+      "elapsed_s": 0.011,
+      "error": null,
+      "detail": "Correctly rejected tampered VP: valid=False"
+    },
+    {
+      "id": "T13",
+      "name": "VP verifies with no DB record (stateless)",
+      "passed": true,
+      "elapsed_s": 0.01,
+      "error": null,
+      "detail": "Fresh VP (never in DB) verified \u2014 stateless guarantee confirmed"
+    },
+    {
+      "id": "T14",
+      "name": "VP reconstruct from cache",
+      "passed": false,
+      "elapsed_s": 0.1,
+      "error": "reconstruct HTTP status: expected 200, got 403",
+      "detail": null
+    },
+    {
+      "id": "T15",
+      "name": "KYBCredential from trusted issuer accepted",
+      "passed": true,
+      "elapsed_s": 0.013,
+      "error": null,
+      "detail": "KYBCredential from did:web:observerprotocol.org: issuer_trusted=True"
+    },
+    {
+      "id": "T16",
+      "name": "KYBCredential from unknown issuer flagged",
+      "passed": true,
+      "elapsed_s": 0.011,
+      "error": null,
+      "detail": "Unknown issuer did:web:untrusted.example.com:issuer:7be233291dcb: issuer_trusted=False"
+    },
+    {
+      "id": "T17",
+      "name": "Cryptographically invalid credential rejected",
+      "passed": true,
+      "elapsed_s": 0.011,
+      "error": null,
+      "detail": "Corrupted proofValue rejected: valid=False"
+    },
+    {
+      "id": "T18",
+      "name": "No hardcoded credentials in codebase",
+      "passed": true,
+      "elapsed_s": 0.016,
+      "error": null,
+      "detail": "Checked 17 Python files, 0 violations"
+    },
+    {
+      "id": "T19",
+      "name": "All required env vars present",
+      "passed": true,
+      "elapsed_s": 0.0,
+      "error": null,
+      "detail": "OP_DID=did:web:observerprotocol.org, all keys present and correct length"
+    },
+    {
+      "id": "T20",
+      "name": "API health and DB connectivity",
+      "passed": true,
+      "elapsed_s": 0.067,
+      "error": null,
+      "detail": "Health OK, DB connected, timestamp=2026-03-31T00:04:19.289007"
+    }
+  ]
+}

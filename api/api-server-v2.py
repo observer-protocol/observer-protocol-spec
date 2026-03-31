@@ -17,30 +17,54 @@ import hashlib
 import secrets
 import uuid
 import base64
-import sys
+import json
+
+
 def get_db_connection():
-    """Get PostgreSQL database connection."""
-    import os
-    database_url = os.environ.get('DATABASE_URL', 'postgresql://observer:observer_pass_2024@localhost:5432/observer_protocol')
-    conn = psycopg2.connect(database_url)
-    return conn
+    """Get PostgreSQL database connection using DATABASE_URL env var."""
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError(
+            "DATABASE_URL environment variable is not set."
+        )
+    return psycopg2.connect(database_url)
+
 
 # Import VAC and Partner Registry modules
 from vac_generator import VACGenerator, VAC_MAX_AGE_DAYS, VAC_REFRESH_HOURS
 from partner_registry import PartnerRegistry, register_corpo_partner, issue_corpo_attestation
 
-# Import Organization Registry modules (Phase 1: Organizational Attestation)
-sys.path.insert(0, '/home/futurebit/.openclaw/workspace/observer-protocol-repo')
+# Import Organization Registry modules
 from organization_models import (
     OrganizationRegistrationRequest,
-    OrganizationRevocationRequest
+    OrganizationRevocationRequest,
 )
 from organization_registry import (
     OrganizationRegistry,
     OrganizationAlreadyExistsError,
     OrganizationNotFoundError,
-    OrganizationRevokedError
+    OrganizationRevokedError,
 )
+
+# Import crypto verification module
+from crypto_verification import (
+    persist_public_key,
+    load_all_public_keys_from_db,
+    verify_signature,
+    verify_signature_simple,
+    verify_ed25519_signature,
+    get_cached_public_key,
+    get_cached_key_type,
+    detect_key_type,
+)
+
+# Import DID modules (Layer 1)
+from did_document_builder import (
+    build_agent_did,
+    build_agent_did_document,
+    build_op_did_document,
+)
+from did_resolver import resolve_did, validate_did_document
 
 # Flag for crypto availability - cryptography library is confirmed available
 ECDSA_AVAILABLE = True
@@ -115,31 +139,36 @@ def _build_transaction_message(agent_id: str, transaction_reference: str, protoc
     return f"{agent_id}:{transaction_reference}:{protocol}:{timestamp}".encode()
 
 
-DB_URL = "postgresql://agentic_terminal:at_secure_2026@localhost/agentic_terminal_db"
-
 app = FastAPI(
     title="Agentic Terminal API",
     description="Canonical structured database for machine-native settlement systems",
     version="1.0.0"
 )
 
+_default_origins = (
+    "https://observerprotocol.org,"
+    "https://www.observerprotocol.org,"
+    "https://agenticterminal.ai,"
+    "https://www.agenticterminal.ai"
+)
+_allowed_origins = [
+    o.strip()
+    for o in os.environ.get("OP_ALLOWED_ORIGINS", _default_origins).split(",")
+    if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://observerprotocol.org",
-        "https://www.observerprotocol.org",
-        "https://agenticterminal.ai",
-        "https://www.agenticterminal.ai",
-    ],
+    allow_origins=_allowed_origins,
     allow_credentials=False,
-    allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "OPTIONS"],
     allow_headers=["*"],
 )
 
 
 @app.on_event("startup")
 def startup_event():
-    """Load public keys from database on startup."""
+    """Load public keys from database and initialise OP DID Document on startup."""
     print("Loading public keys from database...")
     try:
         loaded = load_all_public_keys_from_db()
@@ -148,9 +177,49 @@ def startup_event():
         print(f"Warning: Could not load public keys from database: {e}")
         print("  This is expected if the migration hasn't been run yet.")
 
-def get_db_connection():
-    """Get database connection."""
-    return psycopg2.connect(DB_URL)
+    op_public_key = os.environ.get("OP_PUBLIC_KEY")
+    if op_public_key:
+        try:
+            _ensure_op_did_document(op_public_key)
+            print("✓ OP DID Document ready")
+        except Exception as e:
+            print(f"Warning: Could not initialise OP DID Document: {e}")
+    else:
+        print("Warning: OP_PUBLIC_KEY not set — /.well-known/did.json will not be served")
+
+    if not os.environ.get("OP_WEBHOOK_SECRET"):
+        print(
+            "Warning: OP_WEBHOOK_SECRET is not set — outbound webhook payloads will "
+            "NOT be signed. Set OP_WEBHOOK_SECRET in the environment to enable "
+            "HMAC-SHA256 payload signing."
+        )
+
+
+def _ensure_op_did_document(op_public_key: str) -> None:
+    """Insert OP's DID Document into op_did_document if not already present."""
+    doc = build_op_did_document(op_public_key)
+    op_did = doc["id"]
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id FROM op_did_document WHERE did = %s", (op_did,))
+        if cursor.fetchone() is None:
+            cursor.execute(
+                "INSERT INTO op_did_document (did, document) VALUES (%s, %s)",
+                (op_did, json.dumps(doc)),
+            )
+            conn.commit()
+        else:
+            # Refresh key on restart so key rotations propagate
+            cursor.execute(
+                "UPDATE op_did_document SET document = %s, updated_at = NOW() WHERE did = %s",
+                (json.dumps(doc), op_did),
+            )
+            conn.commit()
+    finally:
+        cursor.close()
+        conn.close()
+
 
 @app.get("/api/v1/health")
 def health_check():
@@ -429,7 +498,6 @@ def register_agent(
     # Parse and validate chains if provided
     chains_list = None
     if chains:
-        import json
         try:
             chains_list = json.loads(chains)
             if not isinstance(chains_list, list):
@@ -442,15 +510,24 @@ def register_agent(
     
     # Generate agent_id as SHA256 hash of public_key
     agent_id = hashlib.sha256(public_key.encode()).hexdigest()[:32]
-    public_key_hash = hashlib.sha256(public_key.encode()).hexdigest()
+
+    # Generate DID and DID Document
+    agent_did = build_agent_did(agent_id)
+    did_document = None
+    try:
+        did_document = build_agent_did_document(agent_id, public_key)
+    except Exception as _did_err:
+        # Key format may not be directly encodable (e.g. compressed secp256k1);
+        # record the DID without a document for now.
+        pass
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
         cursor.execute("""
-            INSERT INTO observer_agents (agent_id, public_key_hash, agent_name, alias, framework, legal_entity_id, verified, created_at, public_key, wallet_standard, ows_vault_name, chains)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), %s, %s, %s, %s)
+            INSERT INTO observer_agents (agent_id, agent_name, alias, framework, legal_entity_id, verified, created_at, public_key, wallet_standard, ows_vault_name, chains, agent_did, did_document, did_created_at, did_updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, NOW(), %s, %s, %s, %s, %s, %s, NOW(), NOW())
             ON CONFLICT (agent_id) DO UPDATE SET
                 agent_name = EXCLUDED.agent_name,
                 alias = EXCLUDED.alias,
@@ -458,18 +535,29 @@ def register_agent(
                 legal_entity_id = EXCLUDED.legal_entity_id,
                 wallet_standard = EXCLUDED.wallet_standard,
                 ows_vault_name = EXCLUDED.ows_vault_name,
-                chains = EXCLUDED.chains
+                chains = EXCLUDED.chains,
+                agent_did = EXCLUDED.agent_did,
+                did_document = EXCLUDED.did_document,
+                did_updated_at = NOW()
             RETURNING agent_id
-        """, (agent_id, public_key_hash, agent_name, alias or agent_name, framework, legal_entity_id, False, public_key, wallet_standard, ows_vault_name, json.dumps(chains_list) if chains_list else None))
-        
+        """, (
+            agent_id, agent_name, alias or agent_name,
+            framework, legal_entity_id, False, public_key,
+            wallet_standard, ows_vault_name,
+            json.dumps(chains_list) if chains_list else None,
+            agent_did,
+            json.dumps(did_document) if did_document else None,
+        ))
+
         conn.commit()
 
         # Persist the public key to database (and cache in memory)
         persist_public_key(agent_id, public_key, verified=False)
-        
-        # Build response with OWS badge if applicable
+
+        # Build response
         response = {
             "agent_id": agent_id,
+            "agent_did": agent_did,
             "agent_name": agent_name,
             "verification_status": "registered",
             "message": "Registration successful. Agent identity recorded in Observer Protocol registry.",
@@ -477,13 +565,17 @@ def register_agent(
             "next_steps": [
                 "1. Generate challenge: POST /observer/challenge?agent_id=<id>",
                 "2. Sign and verify: POST /observer/verify-agent",
-                "3. Badge available at: GET /observer/badge/{agent_id}.svg"
+                "3. Badge available at: GET /observer/badge/{agent_id}.svg",
+                f"4. DID Document at: GET /agents/{agent_id}/did.json",
             ],
             "badge_url": f"https://api.agenticterminal.ai/observer/badge/{agent_id}.svg",
-            "profile_url": f"https://observerprotocol.org/agents/{agent_id}"
+            "profile_url": f"https://observerprotocol.org/agents/{agent_id}",
+            "did_document_url": f"https://observerprotocol.org/agents/{agent_id}/did.json",
         }
-        
-        # Add OWS fields to response
+
+        if did_document:
+            response["did_document"] = did_document
+
         if wallet_standard:
             response["wallet_standard"] = wallet_standard
             response["ows_badge"] = wallet_standard == "ows"
@@ -491,7 +583,7 @@ def register_agent(
             response["ows_vault_name"] = ows_vault_name
         if chains_list:
             response["chains"] = chains_list
-            
+
         return response
     except Exception as e:
         conn.rollback()
@@ -613,7 +705,7 @@ def generate_challenge(agent_id: str):
     try:
         # Verify agent exists
         cursor.execute("""
-            SELECT agent_id, public_key_hash FROM observer_agents 
+            SELECT agent_id FROM observer_agents
             WHERE agent_id = %s
         """, (agent_id,))
         
@@ -683,8 +775,8 @@ def verify_agent(agent_id: str, signed_challenge: str, challenge_id: Optional[st
     try:
         # Get agent details including public key
         cursor.execute("""
-            SELECT agent_id, public_key_hash, verified 
-            FROM observer_agents 
+            SELECT agent_id, verified
+            FROM observer_agents
             WHERE agent_id = %s
         """, (agent_id,))
         
@@ -833,21 +925,22 @@ def submit_transaction(
     cursor = conn.cursor()
     
     try:
-        # Verify agent exists and is verified
+        # Verify agent exists and is verified; fetch agent_did for payload
         cursor.execute("""
-            SELECT verified FROM observer_agents WHERE agent_id = %s
+            SELECT verified, agent_did FROM observer_agents WHERE agent_id = %s
         """, (agent_id,))
-        
+
         result = cursor.fetchone()
         if not result:
             raise HTTPException(status_code=404, detail="Agent not found")
         if not result[0]:
             raise HTTPException(status_code=403, detail="Agent not verified")
-        
-        # Bug #0 Fix: Verify transaction signature cryptographically
+        agent_did = result[1] if result[1] else None
+
+        # Verify transaction signature cryptographically
         if not signature:
             raise HTTPException(status_code=400, detail="Transaction signature required")
-        
+
         public_key_hex = get_cached_public_key(agent_id)
         if not public_key_hex:
             raise HTTPException(status_code=400, detail="Public key not found")
@@ -929,11 +1022,14 @@ def submit_transaction(
         
         conn.commit()
         
-        return {
+        resp: dict = {
             "event_id": event_id,
             "verified": True,
-            "stored_at": stored_at.isoformat()
+            "stored_at": stored_at.isoformat(),
         }
+        if agent_did:
+            resp["agent_did"] = agent_did
+        return resp
     except HTTPException:
         raise
     except Exception as e:
@@ -1230,11 +1326,13 @@ def lookup_agent_by_hash(public_key_hash: str):
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
+        # public_key_hash column was dropped (Migration 005).
+        # agent_id was always SHA256(public_key)[:32], so agent_id == public_key_hash[:32].
         cursor.execute("""
             SELECT agent_id, agent_name, alias, framework, legal_entity_id,
                    verified, verified_at, created_at, access_level
-            FROM observer_agents WHERE public_key_hash = %s
-        """, (public_key_hash,))
+            FROM observer_agents WHERE agent_id = %s
+        """, (public_key_hash[:32],))
         agent = cursor.fetchone()
         if not agent:
             raise HTTPException(status_code=404, detail="Agent not found")
@@ -1487,37 +1585,26 @@ def get_vac_credential(agent_id: str, include_extensions: bool = True):
             
             if not vac:
                 raise HTTPException(status_code=404, detail="VAC not found")
-            
-            # Get VAC as dict and add OWS fields
-            vac_dict = vac.to_dict()
-            
-            # Add OWS fields to VAC response
-            vac_dict["version"] = "1.0"
-            vac_dict["agent_id"] = agent_id
-            vac_dict["alias"] = agent.get("alias")
-            vac_dict["public_key"] = agent.get("public_key")
-            vac_dict["wallet_standard"] = agent.get("wallet_standard")
-            vac_dict["ows_badge"] = agent.get("wallet_standard") == "ows"
-            vac_dict["ows_vault_name"] = agent.get("ows_vault_name")
-            
-            # Parse chains JSON if present
+
+            # vac is a W3C VP dict — annotate with agent metadata for convenience
+            vac["_meta"] = {
+                "agent_id": agent_id,
+                "alias": agent.get("alias"),
+                "public_key": agent.get("public_key"),
+                "wallet_standard": agent.get("wallet_standard"),
+                "ows_badge": agent.get("wallet_standard") == "ows",
+                "ows_vault_name": agent.get("ows_vault_name"),
+            }
             if agent.get("chains"):
-                import json
                 try:
                     chains = agent["chains"]
                     if isinstance(chains, str):
                         chains = json.loads(chains)
-                    vac_dict["chains"] = chains
-                except:
-                    vac_dict["chains"] = []
-            
-            vac_dict["credential_proof"] = {
-                "type": "ObserverProtocolVAC",
-                "issued_at": datetime.now(timezone.utc).isoformat(),
-                "issuer": "observerprotocol.org"
-            }
-            
-            return vac_dict
+                    vac["_meta"]["chains"] = chains
+                except Exception:
+                    vac["_meta"]["chains"] = []
+
+            return vac
             
         finally:
             cursor.close()
@@ -1530,7 +1617,7 @@ def get_vac_credential(agent_id: str, include_extensions: bool = True):
 
 
 @app.post("/vac/{agent_id}/refresh")
-def refresh_vac_credential(agent_id: str, force: bool = False):
+async def refresh_vac_credential(agent_id: str, force: bool = False):
     """
     Manually refresh a VAC credential.
     
@@ -1559,21 +1646,96 @@ def refresh_vac_credential(agent_id: str, force: bool = False):
             cursor.close()
             conn.close()
         
-        # Generate new VAC
-        vac = generator.generate_vac(agent_id)
-        
+        # Generate new VAC — returns W3C VP dict
+        vp = generator.generate_vac(agent_id)
+
+        # Extract metadata from embedded VC for the response envelope
+        vcs = vp.get("verifiableCredential", [])
+        first_vc = vcs[0] if vcs else {}
+
+        # Fire vc.issued webhook (best-effort)
+        try:
+            from webhook_delivery import on_vc_issued
+            await on_vc_issued(
+                credential_id=first_vc.get("id", ""),
+                agent_did=vp.get("holder", ""),
+                credential_type="AgentActivityCredential",
+            )
+        except Exception:
+            pass
+
         return {
             "success": True,
-            "credential_id": vac.credential_id,
-            "issued_at": vac.issued_at,
-            "expires_at": vac.expires_at,
-            "message": "VAC credential refreshed successfully"
+            "vp_id": vp.get("id"),
+            "credential_id": first_vc.get("id"),
+            "issued_at": first_vc.get("issuanceDate"),
+            "expires_at": first_vc.get("expirationDate"),
+            "message": "VAC refreshed successfully",
+            "vp": vp,
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"VAC refresh failed: {str(e)}")
+
+
+class VPPresentRequest(BaseModel):
+    """Request body for agent-signed VP submission."""
+    holder_private_key_hex: str
+
+
+@app.put("/agents/{agent_id}/present")
+@app.post("/vac/{agent_id}/present")
+async def present_vp(agent_id: str, request: VPPresentRequest):
+    """
+    Submit a holder-signed Verifiable Presentation.
+
+    The agent's private key is used to sign the VP. The signed VP is stored
+    and a vp.submitted webhook event is fired.
+    """
+    try:
+        generator = VACGenerator()
+
+        # Verify agent exists
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT verified FROM observer_agents WHERE agent_id = %s", (agent_id,)
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Agent not found")
+            if not row[0]:
+                raise HTTPException(status_code=403, detail="Agent not verified")
+        finally:
+            cursor.close()
+            conn.close()
+
+        vp = generator.generate_vac(
+            agent_id,
+            holder_private_key_hex=request.holder_private_key_hex,
+        )
+
+        # Fire vp.submitted webhook
+        try:
+            from webhook_delivery import on_vp_submitted
+            await on_vp_submitted(vp_id=vp.get("id", ""), holder_did=vp.get("holder", ""))
+        except Exception:
+            pass  # webhook failure must not block the response
+
+        return {
+            "success": True,
+            "vp_id": vp.get("id"),
+            "holder": vp.get("holder"),
+            "vp": vp,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"VP presentation failed: {str(e)}")
 
 
 @app.get("/vac/{agent_id}/history")
@@ -1633,6 +1795,216 @@ def get_vac_history(agent_id: str, limit: int = 10):
     finally:
         cursor.close()
         conn.close()
+
+
+# ============================================================
+# VP ENDPOINTS (Layer 3 — DB as cache, agent carries authoritative VP)
+# ============================================================
+
+class VPVerifyRequest(BaseModel):
+    """Request body for VP verification."""
+    vp: dict
+    # Optional: provide holder public key directly. If omitted, the server
+    # only verifies embedded VCs (VP proof verification is skipped).
+    holder_public_key_hex: Optional[str] = None
+
+
+class VPSubmitRequest(BaseModel):
+    """Request body for agent VP submission."""
+    vp: dict
+    agent_id: str
+
+
+class VPReconstructRequest(BaseModel):
+    """Request body for VP reconstruction."""
+    agent_id: str
+    holder_private_key_hex: Optional[str] = None
+    force_regenerate: bool = False
+
+
+@app.post("/vp/verify")
+def verify_vp_endpoint(request: VPVerifyRequest):
+    """
+    Verify a W3C Verifiable Presentation.
+
+    Layer 3 guarantee: verification is performed entirely from the VP document
+    and the OP public key (env var).  No DB lookup is required or performed.
+
+    Checks:
+      - W3C structural validity (context, types, holder DID, VC fields)
+      - Ed25519Signature2020 proof on each embedded VC (signed by OP)
+      - Expiration of each embedded VC
+      - Ed25519Signature2020 proof on the VP itself (if holder_public_key_hex provided)
+    """
+    from vp_reconstructor import validate_vp_structure
+    from vc_verifier import verify_vp_with_embedded_vcs, verify_vc, verify_vp
+
+    vp = request.vp
+    op_public_key = os.environ.get("OP_PUBLIC_KEY")
+    if not op_public_key:
+        raise HTTPException(status_code=500, detail="OP_PUBLIC_KEY not configured")
+
+    # 1. Structural checks (no crypto, no DB)
+    struct = validate_vp_structure(vp)
+
+    # 2. Verify each embedded VC against OP's public key
+    trusted_issuers_raw = os.environ.get("TRUSTED_ISSUERS", "")
+    trusted_issuers = set(
+        s.strip() for s in trusted_issuers_raw.split(",") if s.strip()
+    )
+    # OP's own DID is always a trusted issuer
+    op_did = os.environ.get("OP_DID", "did:web:observerprotocol.org")
+    trusted_issuers.add(op_did)
+
+    vc_results = []
+    for vc in vp.get("verifiableCredential", []):
+        ok, reason = verify_vc(vc, op_public_key)
+        issuer = vc.get("issuer") or ""
+        if isinstance(issuer, dict):
+            issuer = issuer.get("id", "")
+        issuer_trusted = issuer in trusted_issuers
+        vc_results.append({
+            "id": vc.get("id"),
+            "valid": ok,
+            "error": None if ok else reason,
+            "issuer_trusted": issuer_trusted,
+        })
+
+    # 3. Verify VP proof if holder public key provided
+    vp_proof_result: Optional[dict] = None
+    if request.holder_public_key_hex:
+        vp_ok, vp_err = verify_vp(vp, request.holder_public_key_hex)
+        vp_proof_result = {"valid": vp_ok, "error": None if vp_ok else vp_err}
+
+    all_vcs_valid = all(r["valid"] for r in vc_results)
+    vp_proof_valid = vp_proof_result["valid"] if vp_proof_result is not None else None
+
+    overall_valid = struct["valid"] and all_vcs_valid
+    if vp_proof_result is not None:
+        overall_valid = overall_valid and vp_proof_valid
+
+    result: dict = {
+        "valid": overall_valid,
+        "structure": struct,
+        "vc_results": vc_results,
+    }
+    if vp_proof_result is not None:
+        result["vp_proof"] = vp_proof_result
+
+    return result
+
+
+@app.post("/vp/submit")
+async def submit_vp_endpoint(request: VPSubmitRequest):
+    """
+    Accept an agent-submitted Verifiable Presentation.
+
+    The VP is verified (structure + all embedded VC signatures) before being
+    stored in the DB cache.  The DB write is best-effort cache — a verification
+    failure from the DB side does NOT constitute a rejection of the VP.
+
+    A vp.submitted webhook is fired on success.
+    """
+    from vp_reconstructor import VPReconstructor, validate_vp_structure
+    from vc_verifier import verify_vc
+
+    vp = request.vp
+    agent_id = request.agent_id
+
+    op_public_key = os.environ.get("OP_PUBLIC_KEY")
+    if not op_public_key:
+        raise HTTPException(status_code=500, detail="OP_PUBLIC_KEY not configured")
+
+    # Structural check
+    struct = validate_vp_structure(vp)
+    if not struct["valid"]:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "VP structure invalid", "errors": struct["errors"]},
+        )
+
+    # Verify embedded VC signatures
+    vc_errors = []
+    for vc in vp.get("verifiableCredential", []):
+        ok, reason = verify_vc(vc, op_public_key)
+        if not ok:
+            vc_errors.append({"id": vc.get("id"), "error": reason})
+    if vc_errors:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "One or more VCs failed verification", "vc_errors": vc_errors},
+        )
+
+    # Store to DB cache (best-effort)
+    store_error = None
+    try:
+        reconstructor = VPReconstructor()
+        reconstructor.store_submitted_vp(agent_id, vp)
+    except Exception as exc:
+        store_error = str(exc)
+
+    # Fire webhook (best-effort)
+    try:
+        from webhook_delivery import on_vp_submitted
+        await on_vp_submitted(
+            vp_id=vp.get("id", ""),
+            holder_did=vp.get("holder", ""),
+        )
+    except Exception:
+        pass
+
+    response: dict = {
+        "success": True,
+        "vp_id": vp.get("id"),
+        "holder": vp.get("holder"),
+        "cached": store_error is None,
+    }
+    if store_error:
+        response["cache_warning"] = store_error
+    return response
+
+
+@app.post("/vp/reconstruct")
+def reconstruct_vp_endpoint(request: VPReconstructRequest):
+    """
+    Reconstruct the VP for an agent.
+
+    Returns the cached VP from the DB if one exists and is valid.
+    Otherwise generates a fresh VP from live transaction data (and updates
+    the DB cache).
+
+    Use force_regenerate=true to bypass the cache and always issue a new VP.
+    """
+    from vp_reconstructor import VPReconstructor
+
+    # Verify agent exists
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "SELECT verified FROM observer_agents WHERE agent_id = %s",
+            (request.agent_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        if not row[0]:
+            raise HTTPException(status_code=403, detail="Agent not verified")
+    finally:
+        cursor.close()
+        conn.close()
+
+    reconstructor = VPReconstructor()
+    vp = reconstructor.reconstruct_vp(
+        agent_id=request.agent_id,
+        holder_private_key_hex=request.holder_private_key_hex,
+        force_regenerate=request.force_regenerate,
+    )
+    return {
+        "agent_id": request.agent_id,
+        "source": "cache" if not request.force_regenerate else "generated",
+        "vp": vp,
+    }
 
 
 # ============================================================
@@ -2156,6 +2528,184 @@ def revoke_organization_endpoint(org_id: str, request: OrganizationRevocationReq
 
 # ============================================================
 # END ORGANIZATION REGISTRY ENDPOINTS
+# ============================================================
+
+
+# ============================================================
+# DID RESOLUTION ENDPOINTS (Layer 1)
+# ============================================================
+
+@app.get("/.well-known/did.json", tags=["DID"])
+def get_op_did_document():
+    """
+    Return Observer Protocol's own DID Document.
+    Required by any verifier checking OP-issued VC signatures.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cursor.execute(
+            "SELECT document FROM op_did_document ORDER BY updated_at DESC LIMIT 1"
+        )
+        row = cursor.fetchone()
+    finally:
+        cursor.close()
+        conn.close()
+
+    if not row:
+        raise HTTPException(
+            status_code=404,
+            detail="OP DID Document not initialised. Set OP_PUBLIC_KEY and restart.",
+        )
+    doc = row["document"]
+    if isinstance(doc, str):
+        import json as _json
+        doc = _json.loads(doc)
+    return doc
+
+
+@app.get("/agents/{agent_id}/did.json", tags=["DID"])
+def get_agent_did_document(agent_id: str):
+    """
+    Return the DID Document for an agent.
+    Contains the agent's current Ed25519 public key.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cursor.execute(
+            "SELECT did_document, agent_did FROM observer_agents WHERE agent_id = %s",
+            (agent_id,),
+        )
+        row = cursor.fetchone()
+    finally:
+        cursor.close()
+        conn.close()
+
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
+    if not row["did_document"]:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Agent '{agent_id}' has no DID Document (key may be non-Ed25519)",
+        )
+    doc = row["did_document"]
+    if isinstance(doc, str):
+        import json as _json
+        doc = _json.loads(doc)
+    return doc
+
+
+@app.get("/orgs/{org_id}/did.json", tags=["DID"])
+def get_org_did_document(org_id: str):
+    """
+    Return the DID Document for an organization.
+    Contains the org's current public key.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cursor.execute(
+            "SELECT did_document, org_did FROM organizations WHERE org_id = %s",
+            (org_id,),
+        )
+        row = cursor.fetchone()
+    finally:
+        cursor.close()
+        conn.close()
+
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Organization '{org_id}' not found")
+    if not row["did_document"]:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Organization '{org_id}' has no DID Document",
+        )
+    doc = row["did_document"]
+    if isinstance(doc, str):
+        import json as _json
+        doc = _json.loads(doc)
+    return doc
+
+
+class KeyRotationRequest(BaseModel):
+    """Request body for agent key rotation."""
+    new_public_key: str
+
+    class Config:
+        extra = "forbid"
+
+
+@app.put("/agents/{agent_id}/keys", tags=["DID"])
+def rotate_agent_key(agent_id: str, request: KeyRotationRequest):
+    """
+    Rotate an agent's key.
+
+    Builds a new DID Document from the new public key and stores it.
+    The DID string itself never changes — only the verificationMethod is updated.
+    """
+    if not request.new_public_key or len(request.new_public_key) < 32:
+        raise HTTPException(
+            status_code=400,
+            detail="new_public_key must be at least 32 characters",
+        )
+
+    try:
+        new_did_document = build_agent_did_document(agent_id, request.new_public_key)
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Could not build DID Document from new_public_key: {e}",
+        )
+
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cursor.execute(
+            "SELECT agent_id, agent_did FROM observer_agents WHERE agent_id = %s",
+            (agent_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
+
+        cursor.execute(
+            """
+            UPDATE observer_agents
+            SET public_key = %s,
+                did_document = %s,
+                did_updated_at = NOW()
+            WHERE agent_id = %s
+            """,
+            (
+                request.new_public_key,
+                json.dumps(new_did_document),
+                agent_id,
+            ),
+        )
+        conn.commit()
+
+        # Refresh in-memory key cache
+        persist_public_key(agent_id, request.new_public_key, verified=False)
+
+        return {
+            "agent_id": agent_id,
+            "agent_did": row["agent_did"],
+            "did_document": new_did_document,
+            "message": "Key rotation successful. DID Document updated. DID string unchanged.",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Key rotation failed: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# ============================================================
+# END DID RESOLUTION ENDPOINTS
 # ============================================================
 
 

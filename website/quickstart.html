@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quickstart - Observer Protocol</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+            color: white;
+        }
+
+        header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .quickstart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 60px;
+        }
+
+        .quickstart-card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+
+        .quickstart-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        }
+
+        .quickstart-card.featured {
+            border: 3px solid #667eea;
+            position: relative;
+        }
+
+        .quickstart-card.featured::before {
+            content: "NEW";
+            position: absolute;
+            top: -12px;
+            right: 20px;
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .card-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-right: 15px;
+        }
+
+        .quickstart-card.featured .card-icon {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .quickstart-card:not(.featured) .card-icon {
+            background: #f0f0f0;
+        }
+
+        .card-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #1a1a1a;
+        }
+
+        .card-subtitle {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .card-description {
+            color: #555;
+            margin-bottom: 20px;
+            line-height: 1.7;
+        }
+
+        .card-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            background: #f0f0f0;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .tag.highlight {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        /* OWS Quickstart Section */
+        .ows-section {
+            background: white;
+            border-radius: 20px;
+            padding: 50px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 40px;
+        }
+
+        .ows-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .ows-header h2 {
+            font-size: 2.5rem;
+            color: #1a1a1a;
+            margin-bottom: 10px;
+        }
+
+        .ows-header p {
+            font-size: 1.1rem;
+            color: #666;
+        }
+
+        .ows-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            margin-top: 15px;
+        }
+
+        .steps-container {
+            counter-reset: step;
+        }
+
+        .step {
+            display: flex;
+            gap: 25px;
+            margin-bottom: 40px;
+            padding-bottom: 40px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .step:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .step-number {
+            flex-shrink: 0;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            font-weight: bold;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step h3 {
+            font-size: 1.3rem;
+            color: #1a1a1a;
+            margin-bottom: 10px;
+        }
+
+        .step p {
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .code-block {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 20px;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        .code-block pre {
+            margin: 0;
+            color: #a5b3ce;
+            font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .code-block .comment {
+            color: #6a737d;
+        }
+
+        .code-block .keyword {
+            color: #ff7b72;
+        }
+
+        .code-block .string {
+            color: #a5d6ff;
+        }
+
+        .code-block .function {
+            color: #d2a8ff;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #a5b3ce;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: background 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .derivation-paths {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+
+        .derivation-paths h4 {
+            font-size: 1rem;
+            color: #1a1a1a;
+            margin-bottom: 15px;
+        }
+
+        .derivation-paths table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .derivation-paths th,
+        .derivation-paths td {
+            text-align: left;
+            padding: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .derivation-paths th {
+            color: #666;
+            font-weight: 600;
+        }
+
+        .derivation-paths td {
+            font-family: 'Fira Code', monospace;
+            color: #1a1a1a;
+        }
+
+        .next-steps {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .next-steps h2 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+
+        .next-steps p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto 30px;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background: white;
+            color: #667eea;
+            padding: 15px 40px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        footer {
+            text-align: center;
+            color: white;
+            opacity: 0.8;
+            margin-top: 60px;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2rem;
+            }
+
+            .ows-section {
+                padding: 30px 20px;
+            }
+
+            .step {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .quickstart-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Observer Protocol</h1>
+            <p>Multi-chain payment attestation for autonomous agents</p>
+        </header>
+
+        <div class="quickstart-grid">
+            <!-- OWS Quickstart Card (Featured) -->
+            <div class="quickstart-card featured" onclick="document.getElementById('ows-quickstart').scrollIntoView({behavior: 'smooth'})">
+                <div class="card-header">
+                    <div class="card-icon">🔐</div>
+                    <div>
+                        <div class="card-title">OWS Quickstart</div>
+                        <div class="card-subtitle">Open Wallet Standard + Observer Protocol</div>
+                    </div>
+                </div>
+                <div class="card-description">
+                    Already using OWS? Register your OWS-provisioned agent on Observer Protocol in under 5 minutes. One vault, one identity, portable reputation across every chain.
+                </div>
+                <div class="card-tags">
+                    <span class="tag highlight">OWS</span>
+                    <span class="tag">Multi-chain</span>
+                    <span class="tag">~5 min</span>
+                </div>
+            </div>
+
+            <!-- Standard Quickstart Card -->
+            <div class="quickstart-card">
+                <div class="card-header">
+                    <div class="card-icon">⚡</div>
+                    <div>
+                        <div class="card-title">Standard Quickstart</div>
+                        <div class="card-subtitle">Solana-based agents</div>
+                    </div>
+                </div>
+                <div class="card-description">
+                    Register a traditional agent with Ed25519 keys. Best for Solana-native agents that don't need multi-chain capabilities.
+                </div>
+                <div class="card-tags">
+                    <span class="tag">Solana</span>
+                    <span class="tag">Ed25519</span>
+                    <span class="tag">~10 min</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- OWS Detailed Quickstart -->
+        <section id="ows-quickstart" class="ows-section">
+            <div class="ows-header">
+                <h2>OWS Quickstart</h2>
+                <p>Register your OWS-provisioned agent on Observer Protocol</p>
+                <div class="ows-badge">
+                    <span>🔐</span>
+                    <span>OWS Compatible</span>
+                </div>
+            </div>
+
+            <div class="steps-container">
+                <!-- Step 1 -->
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Install OWS</h3>
+                        <p>If you haven't already, install the Open Wallet Standard CLI:</p>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            <pre><span class="comment"># Install OWS</span>
+curl -fsSL https://openwallet.sh/install.sh | bash
+
+<span class="comment"># Create your agent treasury vault</span>
+ows wallet create --name <span class="string">"agent-treasury"</span></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Install OP SDK</h3>
+                        <p>Add the Observer Protocol SDK to your project:</p>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            <pre>npm install @observerprotocol/sdk</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>Register Your Agent</h3>
+                        <p>Use your OWS-derived keys to register on Observer Protocol:</p>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            <pre><span class="keyword">import</span> { ObserverClient } <span class="keyword">from</span> <span class="string">'@observerprotocol/sdk'</span>;
+<span class="keyword">import</span> { OWSWallet } <span class="keyword">from</span> <span class="string">'@openwallet/sdk'</span>;
+
+<span class="comment">// Load your OWS vault</span>
+<span class="keyword">const</span> wallet = <span class="keyword">await</span> OWSWallet.load(<span class="string">'agent-treasury'</span>);
+
+<span class="comment">// Derive Solana key for OP registration</span>
+<span class="keyword">const</span> solanaKey = <span class="keyword">await</span> wallet.derivePath(<span class="string">"m/44'/501'/0'/0'"</span>);
+
+<span class="comment">// Create OP client</span>
+<span class="keyword">const</span> client = <span class="keyword">new</span> ObserverClient({
+  baseUrl: <span class="string">'https://api.observerprotocol.org'</span>,
+  agentId: <span class="string">'my-ows-agent'</span>,
+  publicKey: solanaKey.publicKey,
+  privateKey: solanaKey.privateKey
+});
+
+<span class="comment">// Register with OWS metadata</span>
+<span class="keyword">await</span> client.register({
+  solanaAddress: solanaKey.address,
+  walletStandard: <span class="string">'ows'</span>,
+  owsVaultName: <span class="string">'agent-treasury'</span>,
+  chains: [<span class="string">'evm'</span>, <span class="string">'solana'</span>, <span class="string">'bitcoin'</span>],
+  alias: <span class="string">'My OWS Agent'</span>
+});</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 4 -->
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h3>Sign the Challenge</h3>
+                        <p>Complete registration by signing the verification challenge:</p>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            <pre><span class="comment">// Get challenge from server</span>
+<span class="keyword">const</span> challenge = <span class="keyword">await</span> client.getChallenge();
+
+<span class="comment">// Sign with OWS-derived key</span>
+<span class="keyword">const</span> signature = <span class="keyword">await</span> solanaKey.sign(challenge.message);
+
+<span class="comment">// Verify registration</span>
+<span class="keyword">await</span> client.verifyChallenge({
+  signature: signature,
+  challengeId: challenge.id
+});</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 5 -->
+                <div class="step">
+                    <div class="step-number">5</div>
+                    <div class="step-content">
+                        <h3>View Your VAC</h3>
+                        <p>Your Verifiable Agent Credential is now live:</p>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            <pre><span class="comment">// Get your VAC</span>
+<span class="keyword">const</span> vac = <span class="keyword">await</span> client.getVAC();
+console.log(<span class="string">'VAC URL:'</span>, <span class="string">`https://observerprotocol.org/vac/</span>${client.agentId}<span class="string">`</span>);
+
+<span class="comment">// Response includes:</span>
+<span class="comment">// - OWS badge</span>
+<span class="comment">// - Supported chains</span>
+<span class="comment">// - Reputation score</span>
+<span class="comment">// - Vault name</span></pre>
+                        </div>
+                        <div class="derivation-paths">
+                            <h4>🔑 OWS Derivation Paths</h4>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Chain</th>
+                                        <th>Derivation Path</th>
+                                        <th>Curve</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>EVM</td>
+                                        <td>m/44'/60'/0'/0/0</td>
+                                        <td>secp256k1</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Solana</td>
+                                        <td>m/44'/501'/0'/0'</td>
+                                        <td>Ed25519</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Bitcoin</td>
+                                        <td>m/84'/0'/0'/0/0</td>
+                                        <td>secp256k1</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="next-steps">
+            <h2>Ready to Go Live?</h2>
+            <p>Your OWS-provisioned agent can now attest payments across all supported chains. Start building with portable reputation.</p>
+            <a href="#" class="cta-button">View Documentation</a>
+        </div>
+
+        <footer>
+            <p>Observer Protocol &copy; 2026 — Multi-chain payment attestation for autonomous agents</p>
+        </footer>
+    </div>
+
+    <script>
+        function copyCode(button) {
+            const codeBlock = button.nextElementSibling;
+            const code = codeBlock.innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                button.textContent = 'Copied!';
+                setTimeout(() => {
+                    button.textContent = 'Copy';
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>

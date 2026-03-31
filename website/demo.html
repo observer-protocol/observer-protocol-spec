@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Observer Protocol — Live Demo</title>
+  <meta name="description" content="Real agents. Real payments. Cryptographic proof. Live. Observer Protocol — the trust layer for the agentic economy.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="shared-styles.css">
+  <script>
+  // Global error handler to prevent UI breaking on any JS error
+  window.addEventListener('error', function(e) {
+    console.error('Global error caught:', e.error);
+    e.preventDefault();
+  });
+  window.addEventListener('unhandledrejection', function(e) {
+    console.error('Unhandled promise rejection:', e.reason);
+    e.preventDefault();
+  });
+  </script>
+  <style>
+    /* Demo-specific styles */
+    .demo-hero {
+      min-height: auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 1.5rem 2rem 1rem 2rem;
+      max-width: 1080px;
+      margin: 0 auto;
+      position: relative;
+    }
+    .demo-hero::before {
+      content: '';
+      position: absolute;
+      top: -100px; right: -100px;
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(247,147,26,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .live-counter {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.75rem 1.25rem;
+      font-size: 13px;
+      margin-top: 1.5rem;
+    }
+    .counter-value {
+      font-family: var(--font-mono);
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--orange);
+    }
+    
+    /* Feed styles */
+    .feed-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .feed-item {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 0.75rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      transition: all 0.3s ease;
+      gap: 0;
+    }
+    .feed-item:last-child { border-bottom: none; }
+    .feed-item.new {
+      background: rgba(247, 147, 26, 0.15);
+      animation: pulse-amber 3s ease forwards;
+    }
+    @keyframes pulse-amber {
+      0% { background: rgba(247, 147, 26, 0.25); }
+      100% { background: transparent; }
+    }
+    .feed-row {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      gap: 1rem;
+    }
+    .feed-col-protocol {
+      flex: 0 0 90px;
+      min-width: 90px;
+    }
+    .feed-col-hash {
+      flex: 1 1 auto;
+      min-width: 120px;
+      overflow: hidden;
+    }
+    .feed-col-agent {
+      flex: 0 0 100px;
+      min-width: 100px;
+      text-align: left;
+    }
+    .feed-col-amount {
+      flex: 0 0 90px;
+      min-width: 90px;
+      text-align: right;
+    }
+    .feed-col-status {
+      flex: 0 0 30px;
+      min-width: 30px;
+      text-align: center;
+    }
+    .feed-col-time {
+      flex: 0 0 70px;
+      min-width: 70px;
+      text-align: right;
+    }
+    .feed-col-verify {
+      flex: 0 0 70px;
+      min-width: 70px;
+      text-align: right;
+    }
+    .feed-protocol {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .feed-protocol.lightning { color: var(--orange); }
+    .feed-protocol.x402 { color: #60a5fa; }
+    .feed-protocol.x402_stripe { color: #a78bfa; }
+    .feed-tx {
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 11px;
+    }
+    .feed-status {
+      text-align: center;
+    }
+    .feed-time {
+      color: var(--text-dim);
+      font-size: 11px;
+      text-align: right;
+    }
+    .feed-amount {
+      color: var(--orange);
+      font-size: 11px;
+      font-family: var(--font-mono);
+    }
+    .feed-agent {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .feed-proof-row {
+      width: 100%;
+      margin-top: 0.5rem;
+    }
+    .verify-btn {
+      background: none;
+      border: 1px solid var(--orange);
+      color: var(--orange);
+      font-size: 10px;
+      padding: 2px 8px;
+      cursor: pointer;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+    .verify-btn:hover {
+      background: var(--orange);
+      color: var(--bg-card);
+    }
+    .proof-box {
+      display: none;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 0.5rem;
+      line-height: 1.8;
+      background: rgba(255,255,255,0.03);
+      padding: 8px 12px;
+      border-radius: 4px;
+      word-break: break-all;
+    }
+    
+    /* Registry table */
+    .registry-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .registry-table th {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-dim);
+      font-weight: 500;
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .registry-table td {
+      padding: 1rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-secondary);
+    }
+    .registry-table tr:hover td {
+      background: var(--bg-2);
+    }
+    .agent-cell {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .agent-badge {
+      width: 24px;
+      height: 24px;
+      border-radius: 3px;
+    }
+    .agent-name {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+    .agent-id {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+    .success-rate {
+      color: var(--verified);
+    }
+    
+    /* CTA section */
+    .curl-block {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1rem 1.25rem;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      position: relative;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .curl-block:hover { border-color: var(--orange-dim); }
+    .curl-block code {
+      color: var(--text-secondary);
+      word-break: break-all;
+    }
+    .curl-block .comment { color: var(--text-dim); }
+    .curl-block .cmd { color: var(--orange); }
+    .curl-block .arg { color: #86efac; }
+    .copy-toast {
+      position: absolute;
+      top: -30px;
+      right: 0;
+      background: var(--verified);
+      color: #000;
+      padding: 0.25rem 0.75rem;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .copy-toast.show { opacity: 1; }
+    
+    /* Demo badge showcase */
+    .badge-showcase {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2rem;
+      text-align: center;
+    }
+    .badge-showcase img {
+      max-width: 200px;
+      height: auto;
+      margin-bottom: 1rem;
+    }
+    
+    /* Responsive */
+    @media(max-width: 768px) {
+      .feed-item {
+        grid-template-columns: 60px 1fr 60px;
+      }
+      .feed-time { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <a href="index.html" class="nav-logo">Observer Protocol</a>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="spec.html">Spec</a></li>
+    <li><a href="registry.html">Registry</a></li>
+    <li><a href="demo.html" class="active">Demo</a></li>
+    <li><a href="sdk.html">SDK</a></li>
+    <li><a href="api.html">API</a></li>
+    <li><a href="quickstart.html">Quickstart</a></li>
+  </ul>
+</nav>
+
+<div class="page">
+
+  <!-- SECTION 1: HERO -->
+  <div class="demo-hero">
+    <div class="hero-eyebrow fade-up">Live Demo — Protocol v0.3</div>
+    <h1 class="fade-up fade-up-1">Don't Trust, Verify</h1>
+    <p class="hero-sub fade-up fade-up-2">
+      Real agents. Real payments. Cryptographic proof. Live.<br>
+      Each verified transaction contributes to a <strong>Verified Agent Credential (VAC)</strong> — portable across any platform.
+    </p>
+  </div>
+
+  
+
+  <!-- SECTION 3: LIVE VERIFICATION FEED -->
+  <section id="lightning-demo">
+    <div class="container">
+      <div class="section-label">Real-Time</div>
+      <h2>Live Verification Stream</h2>
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:1.5rem;font-family:var(--font-sans);">
+        Every entry is backed by cryptographic proof. New verifications pulse amber for 3 seconds — 
+        <span style="color:var(--orange);">watch for the wow moment</span>.
+      </p>
+      
+      <!-- Filter bar -->
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center;">
+        <span style="font-size:11px;color:var(--text-dim);margin-right:0.25rem;">Filter:</span>
+        <button id="filter-all" onclick="setFilter('all')" style="background:var(--orange);color:#000;border:1px solid var(--orange);border-radius:9999px;padding:0.25rem 0.85rem;font-size:12px;font-weight:600;cursor:pointer;">All</button>
+        <button id="filter-lightning" onclick="setFilter('lightning')" style="background:var(--bg-2);color:var(--text-secondary);border:1px solid var(--border);border-radius:9999px;padding:0.25rem 0.85rem;font-size:12px;cursor:pointer;">⚡ Lightning</button>
+        <button id="filter-solana" onclick="setFilter('solana')" style="background:var(--bg-2);color:var(--text-secondary);border:1px solid var(--border);border-radius:9999px;padding:0.25rem 0.85rem;font-size:12px;cursor:pointer;">☀ Solana</button>
+        <button id="filter-x402" onclick="setFilter('x402')" style="background:var(--bg-2);color:var(--text-secondary);border:1px solid var(--border);border-radius:9999px;padding:0.25rem 0.85rem;font-size:12px;cursor:pointer;">◈ x402</button>
+        <button id="filter-verified" onclick="setFilter('verified')" style="background:var(--bg-2);color:var(--text-secondary);border:1px solid var(--border);border-radius:9999px;padding:0.25rem 0.85rem;font-size:12px;cursor:pointer;">✓ Verified</button>
+        <span id="feed-count" style="margin-left:auto;font-size:11px;color:var(--text-dim);"></span>
+      </div>
+
+      <div class="feed-container" id="feed-container">
+        <div class="feed-item" style="color:var(--text-dim);font-style:italic;">
+          Loading feed...
+        </div>
+      </div>
+      
+      <div style="margin-top:1rem;display:flex;align-items:center;gap:1rem;font-size:12px;color:var(--text-dim);">
+        <span class="live-dot"></span>
+        <span>Auto-refreshing every 30 seconds</span>
+        <span style="margin-left:auto;" id="last-updated">Last updated: —</span>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- SECTION 4: QUICKSTART CARDS -->
+  <section id="quickstart">
+    <div class="container">
+      <div class="section-label">Get Started</div>
+      <h2>Add Your Agent in 30 Minutes</h2>
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:2rem;font-family:var(--font-sans);">
+        Choose your path. Both give your agent a cryptographically verified identity on Observer Protocol.
+      </p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;">
+
+        <!-- Lightning card -->
+        <a href="quickstart-lightning.html" style="text-decoration:none;display:block;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:1.75rem;transition:border-color 0.2s;" onmouseover="this.style.borderColor='var(--orange)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="font-size:2rem;margin-bottom:1rem;">⚡</div>
+          <div style="font-size:11px;color:var(--orange);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.5rem;">Lightning Quickstart</div>
+          <h3 style="font-size:16px;color:var(--text-primary);margin-bottom:0.75rem;font-weight:600;">Your Agent Needs Money. And an Identity.</h3>
+          <p style="font-size:12px;color:var(--text-secondary);font-family:var(--font-sans);margin-bottom:1.25rem;line-height:1.7;">
+            Deploy a self-custodial Lightning wallet via MDK-Cloudflare and register to Observer Protocol. No server required.
+          </p>
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1.25rem;">
+            <span style="font-size:10px;background:var(--bg-2);border:1px solid var(--border);border-radius:9999px;padding:2px 10px;color:var(--text-secondary);">MDK-Cloudflare</span>
+            <span style="font-size:10px;background:var(--bg-2);border:1px solid var(--border);border-radius:9999px;padding:2px 10px;color:var(--text-secondary);">~30 min</span>
+            <span style="font-size:10px;background:var(--bg-2);border:1px solid var(--border);border-radius:9999px;padding:2px 10px;color:var(--text-secondary);">No server</span>
+          </div>
+          <span style="font-size:13px;color:var(--orange);font-weight:500;">Read the guide →</span>
+        </a>
+
+        <!-- x402 card -->
+        <a href="quickstart-x402.html" style="text-decoration:none;display:block;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:1.75rem;transition:border-color 0.2s;" onmouseover="this.style.borderColor='var(--orange)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="font-size:2rem;margin-bottom:1rem;">◈</div>
+          <div style="font-size:11px;color:var(--orange);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.5rem;">x402 / L402 Quickstart</div>
+          <h3 style="font-size:16px;color:var(--text-primary);margin-bottom:0.75rem;font-weight:600;">HTTP-Native Machine Payments</h3>
+          <p style="font-size:12px;color:var(--text-secondary);font-family:var(--font-sans);margin-bottom:1.25rem;line-height:1.7;">
+            Make your agent pay for data over HTTP/402 and attest every transaction to Observer Protocol. Any Lightning wallet works.
+          </p>
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1.25rem;">
+            <span style="font-size:10px;background:var(--bg-2);border:1px solid var(--border);border-radius:9999px;padding:2px 10px;color:var(--text-secondary);">x402 + L402</span>
+            <span style="font-size:10px;background:var(--bg-2);border:1px solid var(--border);border-radius:9999px;padding:2px 10px;color:var(--text-secondary);">~20 min</span>
+            <span style="font-size:10px;background:var(--bg-2);border:1px solid var(--border);border-radius:9999px;padding:2px 10px;color:var(--text-secondary);">Live demo included</span>
+          </div>
+          <span style="font-size:13px;color:var(--orange);font-weight:500;">Read the guide →</span>
+        </a>
+
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- SECTION: x402 LIVE DEMO -->
+  <section id="x402-demo">
+    <div class="container">
+      <div class="section-label">Live Demo</div>
+      <h2>x402 — HTTP-Native Machine Money</h2>
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:1.5rem;font-family:var(--font-sans);">
+        x402 is HTTP-native machine money — a server returns <code style="background:var(--bg-card);padding:2px 6px;border-radius:3px;color:var(--orange);">402 Payment Required</code>, the agent pays sats, retries with proof, gets the response. No wallets, no accounts, no approval. Just HTTP + Bitcoin.
+      </p>
+
+      <!-- 3-Step Flow Animation -->
+      <div class="x402-flow" style="display:flex;align-items:center;justify-content:center;gap:1rem;margin-bottom:2rem;flex-wrap:wrap;">
+        <div class="flow-step" id="step-402" style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:1rem 1.5rem;text-align:center;min-width:100px;transition:all 0.3s ease;">
+          <div style="font-size:1.5rem;margin-bottom:0.25rem;">402</div>
+          <div style="font-size:11px;color:var(--text-dim);">Payment Required</div>
+        </div>
+        <div class="flow-arrow" style="color:var(--text-dim);font-size:1.2rem;">→</div>
+        <div class="flow-step" id="step-pay" style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:1rem 1.5rem;text-align:center;min-width:100px;transition:all 0.3s ease;">
+          <div style="font-size:1.5rem;margin-bottom:0.25rem;">⚡</div>
+          <div style="font-size:11px;color:var(--text-dim);">Pay 1 sat</div>
+        </div>
+        <div class="flow-arrow" style="color:var(--text-dim);font-size:1.2rem;">→</div>
+        <div class="flow-step" id="step-200" style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:1rem 1.5rem;text-align:center;min-width:100px;transition:all 0.3s ease;">
+          <div style="font-size:1.5rem;margin-bottom:0.25rem;">200 ✓</div>
+          <div style="font-size:11px;color:var(--text-dim);">Verified Data</div>
+        </div>
+      </div>
+
+      <!-- Input and Controls -->
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:1.5rem;margin-bottom:1.5rem;">
+        <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;">
+          <label style="font-size:13px;color:var(--text-secondary);min-width:80px;">Agent Alias:</label>
+          <input type="text" id="x402-alias" value="maxi-0001" style="background:var(--bg-2);border:1px solid var(--border);border-radius:4px;padding:0.5rem 0.75rem;color:var(--text-primary);font-family:var(--font-mono);font-size:13px;flex:1;min-width:150px;" oninput="updateCurlExample()">
+        </div>
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+          <button onclick="tryX402Step1()" class="btn btn-primary" style="font-size:13px;">
+            <span>1️⃣</span> Try It (Get 402)
+          </button>
+          <button onclick="tryX402Step2()" class="btn btn-outline" style="font-size:13px;" id="btn-pay-retry" disabled>
+            <span>2️⃣</span> Pay & Retry (Get 200)
+          </button>
+          <button onclick="resetX402Demo()" class="btn btn-outline" style="font-size:13px;">
+            Reset
+          </button>
+        </div>
+      </div>
+
+      <!-- Terminal Output -->
+      <div id="x402-terminal" style="background:#0a0a0f;border:1px solid var(--border);border-radius:4px;padding:1.25rem;font-family:var(--font-mono);font-size:12px;line-height:1.6;min-height:200px;max-height:400px;overflow-y:auto;display:none;">
+        <div id="x402-output" style="white-space:pre-wrap;"></div>
+      </div>
+
+      <!-- Dynamic curl Example -->
+      <h3 style="font-size:14px;color:var(--text-primary);margin:1.5rem 0 0.75rem;font-weight:600;">Try with curl</h3>
+      <div class="curl-block" onclick="copyCurl(this)" id="curl-example-block">
+        <div class="copy-toast" id="curl-copy-toast">Copied!</div>
+        <code id="curl-example-code">
+          <span class="comment"># Step 1: Get payment request</span><br>
+          <span class="cmd">curl</span> <span class="arg">https://api.observerprotocol.org/observer/ask?q=maxi-0001</span><br><br>
+          <span class="comment"># Returns: 402 Payment Required with X-Payment-* headers</span><br><br>
+          <span class="comment"># Step 2: Pay 1 sat to maxi@agenticterminal.ai, then retry with proof</span><br>
+          <span class="cmd">curl</span> <span class="arg">-H</span> <span class="str">"X-Payment-Proof: &lt;preimage&gt;"</span> \<br>
+          &nbsp;&nbsp;<span class="arg">https://api.observerprotocol.org/observer/ask?q=maxi-0001</span><br><br>
+          <span class="comment"># Returns: 200 OK + verified agent data</span>
+        </code>
+      </div>
+
+      <style>
+        .flow-step.active {
+          border-color: var(--orange) !important;
+          box-shadow: 0 0 15px rgba(247, 147, 26, 0.3);
+        }
+        .flow-step.success {
+          border-color: var(--verified) !important;
+          background: rgba(0, 200, 83, 0.1) !important;
+        }
+        .x402-status-402 { color: #ff9800; }
+        .x402-status-200 { color: var(--verified); }
+        .x402-header { color: #60a5fa; }
+        .x402-value { color: #86efac; }
+      </style>
+
+      <script>
+        let x402PaymentProof = null;
+        let x402AgentAlias = 'maxi-0001';
+
+        function updateCurlExample() {
+          const alias = document.getElementById('x402-alias').value || 'maxi-0001';
+          x402AgentAlias = alias;
+          const code = document.getElementById('curl-example-code');
+          code.innerHTML = `<span class="comment"># Step 1: Get payment request</span><br>
+          <span class="cmd">curl</span> <span class="arg">https://api.observerprotocol.org/observer/ask?q=${alias}</span><br><br>
+          <span class="comment"># Returns: 402 Payment Required with X-Payment-* headers</span><br><br>
+          <span class="comment"># Step 2: Pay 1 sat to maxi@agenticterminal.ai, then retry with proof</span><br>
+          <span class="cmd">curl</span> <span class="arg">-H</span> <span class="str">"X-Payment-Proof: &lt;preimage&gt;"</span> \\\\<br>
+          &nbsp;&nbsp;<span class="arg">https://api.observerprotocol.org/observer/ask?q=${alias}</span><br><br>
+          <span class="comment"># Returns: 200 OK + verified agent data</span>`;
+        }
+
+        function resetX402Demo() {
+          document.getElementById('x402-terminal').style.display = 'none';
+          document.getElementById('x402-output').textContent = '';
+          document.getElementById('btn-pay-retry').disabled = true;
+          document.getElementById('step-402').classList.remove('active', 'success');
+          document.getElementById('step-pay').classList.remove('active', 'success');
+          document.getElementById('step-200').classList.remove('active', 'success');
+          x402PaymentProof = null;
+        }
+
+        function appendToTerminal(text, isJson = false) {
+          const terminal = document.getElementById('x402-terminal');
+          const output = document.getElementById('x402-output');
+          terminal.style.display = 'block';
+          
+          if (isJson) {
+            output.innerHTML += '<span class="x402-json">' + JSON.stringify(text, null, 2) + '</span>\n\n';
+          } else {
+            output.innerHTML += text + '\n\n';
+          }
+          terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        async function tryX402Step1() {
+          resetX402Demo();
+          const alias = document.getElementById('x402-alias').value || 'maxi-0001';
+          
+          document.getElementById('step-402').classList.add('active');
+          
+          appendToTerminal(`<span class="x402-status-402">$ curl https://api.observerprotocol.org/observer/ask?q=${alias}</span>`);
+          
+          try {
+            const response = await fetch(`${API_BASE}/observer/ask?q=${alias}`);
+            const statusLine = `HTTP/1.1 ${response.status} ${response.statusText}`;
+            appendToTerminal(statusLine);
+            
+            // Show headers
+            const headers = [];
+            response.headers.forEach((value, key) => {
+              if (key.toLowerCase().startsWith('x-payment')) {
+                headers.push(`<span class="x402-header">${key}</span>: <span class="x402-value">${value}</span>`);
+              }
+            });
+            if (headers.length > 0) {
+              appendToTerminal(headers.join('\n'));
+            }
+            
+            const data = await response.json();
+            appendToTerminal(data, true);
+            
+            if (response.status === 402) {
+              document.getElementById('step-402').classList.add('success');
+              document.getElementById('step-pay').classList.add('active');
+              document.getElementById('btn-pay-retry').disabled = false;
+              
+              // Generate a mock payment proof for demo
+              x402PaymentProof = 'demo-proof-' + Date.now();
+              appendToTerminal(`<span style="color:var(--text-dim);"># Demo: Simulating payment of 1 sat to maxi@agenticterminal.ai...</span>`);
+              appendToTerminal(`<span style="color:var(--text-dim);"># Demo: Payment proof generated: ${x402PaymentProof}</span>`);
+            }
+          } catch (err) {
+            appendToTerminal(`<span style="color:#ff5252;">Error: ${err.message}</span>`);
+          }
+        }
+
+        async function tryX402Step2() {
+          if (!x402PaymentProof) {
+            x402PaymentProof = 'demo-proof-' + Date.now();
+          }
+          const alias = document.getElementById('x402-alias').value || 'maxi-0001';
+          
+          document.getElementById('step-pay').classList.add('success');
+          document.getElementById('step-200').classList.add('active');
+          
+          appendToTerminal(`<span class="x402-status-200">$ curl -H "X-Payment-Proof: ${x402PaymentProof}" https://api.observerprotocol.org/observer/ask?q=${alias}</span>`);
+          
+          try {
+            const response = await fetch(`${API_BASE}/observer/ask?q=${alias}`, {
+              headers: {
+                'X-Payment-Proof': x402PaymentProof
+              }
+            });
+            
+            const statusLine = `HTTP/1.1 ${response.status} ${response.statusText}`;
+            appendToTerminal(statusLine);
+            
+            // Show headers
+            response.headers.forEach((value, key) => {
+              if (key.toLowerCase().startsWith('x-payment')) {
+                appendToTerminal(`<span class="x402-header">${key}</span>: <span class="x402-value">${value}</span>`);
+              }
+            });
+            
+            const data = await response.json();
+            appendToTerminal(data, true);
+            
+            if (response.status === 200) {
+              document.getElementById('step-200').classList.add('success');
+              appendToTerminal(`<span style="color:var(--verified);">✓ x402 payment verified! Agent data retrieved.</span>`);
+            }
+          } catch (err) {
+            appendToTerminal(`<span style="color:#ff5252;">Error: ${err.message}</span>`);
+          }
+        }
+      </script>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- SECTION 6: SUPPORT THE PROTOCOL -->
+  <section>
+    <div class="container">
+      <div class="section-label">Donate</div>
+      <h2>Support the Protocol</h2>
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:1.5rem;font-family:var(--font-sans);">
+        Want to donate to the open source Observer Protocol? Or just test how it works by sending Maxi a few sats with the Protocol embedded into the transaction? Use any Lightning wallet to send Maxi sats and watch the magic.
+      </p>
+      
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:2rem;text-align:center;max-width:480px;margin:0 auto;">
+        <img src="maxi-lightning-qr-v2.png" alt="Lightning Address QR Code" style="max-width:200px;height:auto;margin:0 auto 1.5rem auto;border-radius:4px;display:block;">
+        <div style="font-family:var(--font-mono);font-size:18px;color:var(--orange);font-weight:600;margin-bottom:0.5rem;">
+          maxi@observerprotocol.org
+        </div>
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:1rem;">
+          ⚡ Lightning Address
+        </div>
+        <div style="font-size:11px;color:var(--text-secondary);padding-top:1rem;border-top:1px solid var(--border);">
+          Min: 1 sat | Max: 1000 sats | Appears in live feed within 30 seconds
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer container">
+    <span>Observer Protocol v0.2 · CC BY 4.0</span>
+    <div class="footer-links">
+      <a href="architecture.html">Architecture</a>
+      <a href="spec.html">Spec</a>
+      <a href="registry.html">Registry</a>
+      <a href="demo.html">Demo</a>
+      <a href="sdk.html">SDK</a>
+      <a href="api.html">API</a>
+      <a href="https://github.com/observer-protocol" target="_blank">GitHub</a>
+    </div>
+    <span>Observer Protocol · Trust layer for the agentic economy</span>
+  </footer>
+
+</div>
+
+<script>
+const API_BASE = 'https://api.observerprotocol.org';
+
+function getTierEmoji(txCount) {
+  if (txCount >= 1000) return '💎';
+  if (txCount >= 100)  return '🥇';
+  if (txCount >= 10)   return '🥈';
+  if (txCount >= 1)    return '🥉';
+  return '';
+}
+function getTierLabel(txCount) {
+  if (txCount >= 1000) return 'Platinum';
+  if (txCount >= 100)  return 'Gold';
+  if (txCount >= 10)   return 'Silver';
+  if (txCount >= 1)    return 'Bronze';
+  return '';
+}
+
+// Track seen transaction IDs to detect new items
+let seenTxIds = new Set();
+let feedData = [];
+let activeFilter = 'all';
+
+function setFilter(f) {
+  activeFilter = f;
+  // Update button styles
+  ['all','lightning','x402','verified'].forEach(id => {
+    const btn = document.getElementById('filter-' + id);
+    if (!btn) return;
+    if (id === f) {
+      btn.style.background = 'var(--orange)';
+      btn.style.color = '#000';
+      btn.style.borderColor = 'var(--orange)';
+      btn.style.fontWeight = '600';
+    } else {
+      btn.style.background = 'var(--bg-2)';
+      btn.style.color = 'var(--text-secondary)';
+      btn.style.borderColor = 'var(--border)';
+      btn.style.fontWeight = 'normal';
+    }
+  });
+  renderFeed(feedData);
+}
+
+function renderFeed(items) {
+  // Defensive: ensure items is an array
+  if (!Array.isArray(items)) {
+    console.error('renderFeed expected array, got:', items);
+    items = [];
+  }
+  
+  // Apply filter
+  let filtered = items;
+  if (activeFilter === 'lightning') filtered = items.filter(e => ['lightning','l402'].includes((e.protocol || '').toLowerCase()));
+  else if (activeFilter === 'solana') filtered = items.filter(e => ['solana','x402_solana'].includes((e.protocol || '').toLowerCase()));
+  else if (activeFilter === 'x402') filtered = items.filter(e => ['x402','x402_stripe','x402_evm'].includes((e.protocol || '').toLowerCase()));
+  else if (activeFilter === 'verified') filtered = items.filter(e => e.verified);
+
+  const countEl = document.getElementById('feed-count');
+  if (countEl) countEl.textContent = filtered.length < items.length
+    ? `${filtered.length} of ${items.length} transactions`
+    : `${items.length} transaction${items.length !== 1 ? 's' : ''}`;
+
+  const container = document.getElementById('feed-container');
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="feed-item" style="color:var(--text-dim);font-style:italic;">No transactions match this filter.</div>';
+    return;
+  }
+
+  const eventKey = e => e.event_id || e.created_at || '';
+  container.innerHTML = filtered.map(event => {
+    const isNew = !feedData.find(e => eventKey(e) === eventKey(event));
+    const proto = (event.protocol||'').toLowerCase(); const protocolClass = proto === 'x402' ? 'x402' : proto === 'x402_stripe' ? 'x402_stripe' : proto === 'l402' ? 'l402' : 'lightning';
+    const protocolIcon = protocolClass === 'x402' ? '◈' : protocolClass === 'x402_stripe' ? '💳' : protocolClass === 'l402' ? '⚡' : '⚡';
+    const protocolName = protocolClass === 'x402' ? 'x402' : protocolClass === 'x402_stripe' ? 'x402 / MPP' : protocolClass === 'l402' ? 'L402' : 'Lightning';
+    const verified = event.verified ? '✓' : '○';
+    const verifiedColor = event.verified ? 'color:var(--verified);' : 'color:var(--text-dim);';
+    const ts = event.created_at || event.timestamp || '';
+    const txHash = event.transaction_hash || '';
+    const txDisplay = txHash.length > 16 ? `${txHash.slice(0,8)}…${txHash.slice(-8)}` : (txHash || '—');
+    const agentId = event.agent_id || '';
+    const isVerified = event.verified;
+    const agentTxCount = agentTxCache[agentId] || 0;
+    const tierEmoji = agentId ? getTierEmoji(agentTxCount) : '';
+    const agentLink = agentId ? `<a href="agent.html?id=${agentId}" style="color: var(--orange); text-decoration: none;">${agentId}</a>${tierEmoji ? ` <span title="${getTierLabel(agentTxCount)}" style="font-size:13px;">${tierEmoji}</span>` : ''}` : '—';
+    const verifiedIcon = isVerified ? '<span style="color: #00c853; margin-left: 4px;">✓</span>' : '';
+    const dirIcon = event.direction === 'inbound' ? '↓' : '↑';
+    const preimage = event.preimage || '';
+    const proofId = `proof-${event.event_id}`;
+    const amountStr = (() => {
+      const protocol = (event.protocol||'').toLowerCase();
+      const amount = event.amount_sats;
+      if (amount === undefined || amount === null) return event.amount_bucket || '—';
+      if (protocol === 'x402') return (amount / 100).toFixed(2) + ' USDC'; // x402=USDC, L402=sats
+      return amount.toLocaleString() + ' sats';
+    })();
+    // lnget source badge + claimed status
+    const isLnget = event.source === 'lnget';
+    const lngetClaimed = event.lnget_claimed;
+    const lngetDomain = event.lnget_domain || '';
+    const lngetBadge = isLnget
+      ? `<span title="Paid via lnget CLI" style="font-size:9px;background:#1a2a1a;border:1px solid #2a4a2a;color:#4ade80;border-radius:3px;padding:1px 6px;letter-spacing:0.05em;">lnget</span>
+         <span title="${lngetClaimed ? 'Claimed by verified agent' : 'Unclaimed — no agent registered yet'}" style="font-size:9px;background:${lngetClaimed ? '#1a2a1a' : '#2a1a0a'};border:1px solid ${lngetClaimed ? '#2a4a2a' : '#4a3a0a'};color:${lngetClaimed ? '#4ade80' : '#f59e0b'};border-radius:3px;padding:1px 6px;">${lngetClaimed ? '✓ claimed' : '○ unclaimed'}</span>`
+      : '';
+    // Stripe source badge for x402_stripe protocol
+    const serviceDesc = event.service_description || '';
+    const isStripe = serviceDesc.startsWith('x402_stripe:');
+    const stripeBadge = isStripe
+      ? `<span title="Paid via Stripe" style="font-size:9px;background:#1a1040;border:1px solid #635bff;color:#a78bfa;border-radius:3px;padding:1px 6px;letter-spacing:0.05em;">stripe</span>`
+      : '';
+    return `
+      <div class="feed-item ${isNew ? 'new' : ''}" style="flex-wrap:wrap;gap:4px;">
+        <div class="feed-protocol ${protocolClass}"><span>${protocolIcon}</span><span>${protocolName}</span></div>
+        ${stripeBadge}${lngetBadge}
+        <div class="feed-tx" title="${txHash}" style="font-family:monospace;font-size:11px;color:var(--text-dim);">${txDisplay}</div>
+        <div style="font-size:11px;color:var(--text-dim);min-width:80px;">${lngetDomain || agentLink}${verifiedIcon} ${dirIcon}</div>
+        <div class="feed-amount" style="font-family:var(--font-mono);color:var(--orange);">${amountStr}</div>
+        <div class="feed-status" style="${verifiedColor}">${verified}</div>
+        <div class="feed-time">${timeAgo(ts)}</div>
+        ${preimage ? `
+        <div style="width:100%;margin-top:4px;">
+          <button onclick="document.getElementById('${proofId}').style.display='block';this.style.display='none'"
+            style="background:none;border:1px solid var(--orange);color:var(--orange);font-size:10px;padding:2px 8px;cursor:pointer;border-radius:3px;">
+            Verify Proof
+          </button>
+          <div id="${proofId}" style="display:none;font-family:monospace;font-size:10px;color:var(--text-dim);margin-top:4px;line-height:1.8;background:rgba(255,255,255,0.03);padding:6px;border-radius:4px;word-break:break-all;">
+            ${['x402','x402_stripe'].includes(proto) ? `
+            <div><span style="color:var(--text-light)">transaction_hash:</span> ${preimage}</div>
+            <div style="color:var(--verified);margin-top:2px;">✓ On-chain transaction — verify on block explorer</div>
+            <div style="margin-top:4px;"><a href="https://basescan.org/tx/${preimage}" target="_blank" style="color:var(--orange);text-decoration:none;">View on Basescan ↗</a></div>
+            ` : `
+            <div><span style="color:var(--text-light)">preimage:</span> ${preimage}</div>
+            <div><span style="color:var(--text-light)">sha256(↑):</span> ${txHash}</div>
+            <div style="color:var(--verified);margin-top:2px;">✓ SHA256(preimage) = payment_hash — cryptographic proof of receipt</div>
+            `}
+          </div>
+        </div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+// Format relative time
+function timeAgo(dateString) {
+  if (!dateString) return '—';
+  // Handle both ISO strings with timezone offsets and without
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return '—';
+  const now = new Date();
+  const seconds = Math.floor((now - date) / 1000);
+  
+  if (seconds < 5) return 'just now';
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
+}
+
+// Truncate transaction reference
+function truncateTx(tx) {
+  if (!tx) return '—';
+  if (tx.length <= 16) return tx;
+  return tx.slice(0, 8) + '…' + tx.slice(-8);
+}
+
+// Fetch and display trends
+async function fetchTrends() {
+  try {
+    const res = await fetch(`${API_BASE}/observer/trends`);
+    const data = await res.json();
+    
+    // API returns total_verified_agents and total_events
+    const verifiedCount = data.total_verified_agents ?? data.verified_agents;
+    const totalEvents = data.total_events ?? data.total_verifications;
+    if (verifiedCount !== undefined) {
+      // document.getElementById('verified-count').textContent = verifiedCount;
+    }
+    if (totalEvents !== undefined) {
+      document.getElementById('verification-count').textContent = totalEvents.toLocaleString();
+    }
+  } catch (e) {
+    console.error('Failed to fetch trends:', e);
+  }
+}
+
+// Agent tx count cache for tier badge display
+let agentTxCache = {};
+async function warmAgentCache() {
+  try {
+    const res = await fetch(`${API_BASE}/observer/agents`);
+    const data = await res.json();
+    const agents = data.agents || [];
+    agents.forEach(a => { agentTxCache[a.agent_id] = a.total_transactions || 0; });
+  } catch(e) { /* silent — tier badges just won't show */ }
+}
+
+// Fetch and display feed — always shows last 5 transactions regardless of age
+async function fetchFeed() {
+  try {
+    const res = await fetch(`${API_BASE}/observer/transactions?limit=20`);
+    const data = await res.json();
+    const items = data.transactions || [];
+
+    if (items.length === 0) {
+      document.getElementById('feed-container').innerHTML =
+        '<div class="feed-item" style="color:var(--text-dim);font-style:italic;">No transactions yet. Send a sat to be first ⚡</div>';
+      return;
+    }
+
+    const eventKey = e => e.event_id || e.created_at || '';
+    items.forEach(e => seenTxIds.add(eventKey(e)));
+    feedData = items;
+
+    renderFeed(feedData);
+    document.getElementById('last-updated').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+  } catch (e) {
+    console.error('Failed to fetch feed:', e);
+    document.getElementById('feed-container').innerHTML =
+      '<div class="feed-item" style="color:var(--text-dim);font-style:italic;">Unable to load feed. Retrying...</div>';
+  }
+}
+
+// Registry function - disabled on demo page (moved to registry.html)
+async function fetchRegistry() {
+  // This function is kept to avoid init() errors but does nothing on demo page
+  return;
+}
+
+// Original registry function (for reference):
+async function _fetchRegistry_original() {
+  try {
+    const res = await fetch(`${API_BASE}/observer/agents/list`);
+    const data = await res.json();
+    
+    if (!data.agents || data.agents.length === 0) {
+      document.getElementById('registry-tbody').innerHTML = 
+        '<tr><td colspan="5" style="text-align:center;color:var(--text-dim);font-style:italic;">No agents registered yet.</td></tr>';
+      return;
+    }
+    
+    // Sort to put maxi-0001 first, then by verification status
+    const sortedAgents = data.agents.sort((a, b) => {
+      if (a.agent_id === 'maxi-0001') return -1;
+      if (b.agent_id === 'maxi-0001') return 1;
+      if (a.verified && !b.verified) return -1;
+      if (!a.verified && b.verified) return 1;
+      return 0;
+    });
+    
+    const tbody = document.getElementById('registry-tbody');
+    tbody.innerHTML = sortedAgents.map(agent => {
+      const isMaxi = agent.agent_id === 'maxi-0001';
+      const badgeUrl = `https://api.observerprotocol.org/observer/badge/${agent.agent_id}.svg`;
+      const rail = agent.rail || agent.preferred_rail || 'L402';
+      const txns = agent.total_transactions || agent.tx_count || 0;
+      const successRate = agent.success_rate !== undefined ? `${(agent.success_rate * 100).toFixed(0)}%` : '—';
+      const status = agent.verified 
+        ? '<span class="badge badge-verified">✓ Verified</span>' 
+        : '<span class="badge badge-registered">Registered</span>';
+      
+      return `
+        <tr>
+          <td>
+            <div class="agent-cell">
+              ${isMaxi ? `<img src="${badgeUrl}" alt="${agent.agent_id}" class="agent-badge">` : '<div style="width:24px;"></div>'}
+              <div>
+                <div class="agent-name">${agent.alias || agent.agent_id} <span title="${getTierLabel(txns)}" style="font-size:13px;">${getTierEmoji(txns)}</span></div>
+                <div class="agent-id">${agent.agent_id}</div>
+              </div>
+            </div>
+          </td>
+          <td>${rail}</td>
+          <td>${txns.toLocaleString()}</td>
+          <td class="success-rate">${successRate}</td>
+          <td>${status}</td>
+        </tr>
+      `;
+    }).join('');
+  } catch (e) {
+    console.error('Failed to fetch registry:', e);
+    document.getElementById('registry-tbody').innerHTML = 
+      '<tr><td colspan="5" style="text-align:center;color:var(--text-dim);font-style:italic;">Unable to load registry. Retrying...</td></tr>';
+  }
+}
+
+// Copy curl command
+function copyCurl(el) {
+  const code = el.querySelector('code').textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    const toast = el.querySelector('.copy-toast');
+    if (toast) {
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+  });
+}
+
+// Copy code by element ID
+function copyCode(elementId) {
+  const el = document.getElementById(elementId);
+  if (el) {
+    const text = el.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Copied to clipboard!');
+    });
+  }
+}
+
+// Toggle SDK code expansion
+function toggleSdkCode() {
+  const collapsed = document.getElementById('sdk-collapsed');
+  const expanded = document.getElementById('sdk-expanded');
+  if (collapsed.style.display === 'none') {
+    collapsed.style.display = 'block';
+    expanded.style.display = 'none';
+  } else {
+    collapsed.style.display = 'none';
+    expanded.style.display = 'block';
+  }
+}
+
+// ── Verified Transactions Registry ──────────────────────────────────────────
+let txOffset = 0;
+const TX_PAGE = 50;
+
+function renderTxRow(tx) {
+  const hash = tx.transaction_hash || '';
+  const hashShort = hash.length > 16 ? `${hash.slice(0,8)}…${hash.slice(-8)}` : (hash || '—');
+  const verified = tx.verified
+    ? '<span style="color:var(--verified)">✓</span>'
+    : '<span style="color:var(--text-dim)">○</span>';
+  const dirIcon = tx.direction === 'inbound' ? '↓' : '↑';
+  const dirColor = tx.direction === 'inbound' ? 'color:var(--verified)' : 'color:var(--orange)';
+  const txProto = (tx.protocol||'').toLowerCase(); const proto = txProto === 'x402' ? '◈ x402' : txProto === 'l402' ? '⚡ L402' : '⚡ Lightning';
+  const protoClass = txProto === 'x402' ? 'x402' : txProto === 'l402' ? 'l402' : 'lightning';
+  const proofId = `txproof-${tx.event_id}`;
+  const preimage = tx.preimage || '';
+
+  return `
+    <tr>
+      <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim)">${tx.event_id || '—'}</td>
+      <td style="font-family:var(--font-mono);font-size:11px">${tx.agent_id || '—'}</td>
+      <td><span class="protocol-badge ${protoClass}" style="font-size:10px">${proto}</span></td>
+      <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim)" title="${hash}">${hashShort}</td>
+      <td style="${dirColor};font-weight:bold">${dirIcon}</td>
+      <td style="font-size:11px;color:var(--orange);font-family:var(--font-mono);">${(() => {
+        const protocol = tx.protocol?.toLowerCase() || '';
+        const amount = tx.amount_sats;
+        if (amount === undefined || amount === null) return tx.amount_bucket || '—';
+        if (protocol === 'x402') {
+          return (amount / 100).toFixed(2) + ' USDC';
+        }
+        return amount.toLocaleString() + ' sats';
+      })()}</td>
+      <td style="text-align:center">${verified}</td>
+      <td style="font-size:10px;color:var(--text-dim)">${timeAgo(tx.created_at)}</td>
+      <td>${preimage ? `
+        <button onclick="toggleProof('${proofId}')"
+          style="background:none;border:1px solid var(--orange);color:var(--orange);font-size:9px;padding:2px 6px;cursor:pointer;border-radius:3px;white-space:nowrap">
+          Verify
+        </button>` : ''}</td>
+    </tr>
+    ${preimage ? `
+    <tr id="${proofId}" style="display:none">
+      <td colspan="9" style="padding:8px 12px;background:rgba(247,147,26,0.05);border-bottom:1px solid var(--border)">
+        <div style="font-family:var(--font-mono);font-size:10px;line-height:2;word-break:break-all">
+          ${['x402','x402_stripe'].includes(txProto) ? `
+          <div><span style="color:var(--text-secondary)">transaction_hash:</span> ${preimage}</div>
+          <div style="color:var(--verified);margin-top:4px">✓ On-chain transaction — verify on block explorer</div>
+          <div style="margin-top:4px;"><a href="https://basescan.org/tx/${preimage}" target="_blank" style="color:var(--orange);text-decoration:none;">View on Basescan ↗</a></div>
+          ` : `
+          <div><span style="color:var(--text-secondary)">preimage:</span> ${preimage}</div>
+          <div><span style="color:var(--text-secondary)">sha256(↑):</span> ${hash}</div>
+          <div style="color:var(--verified);margin-top:4px">✓ SHA256(preimage) = payment_hash — cryptographic proof of receipt</div>
+          `}
+        </div>
+      </td>
+    </tr>` : ''}
+  `;
+}
+
+function toggleProof(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = el.style.display === 'none' ? 'table-row' : 'none';
+}
+
+async function fetchTransactions(offset = 0, append = false) {
+  try {
+    const res = await fetch(`${API_BASE}/observer/transactions?limit=${TX_PAGE}`);
+    const data = await res.json();
+    const txs = data.transactions || [];
+
+    const tbody = document.getElementById('tx-tbody');
+    if (!append) tbody.innerHTML = '';
+
+    if (txs.length === 0 && !append) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-dim);font-style:italic;">No transactions yet.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML += txs.map(renderTxRow).join('');
+    txOffset = offset + txs.length;
+
+    const loadMore = document.getElementById('tx-load-more');
+    loadMore.style.display = txs.length >= TX_PAGE ? 'block' : 'none';
+  } catch (e) {
+    console.error('Failed to fetch transactions:', e);
+  }
+}
+
+function loadMoreTx() {
+  fetchTransactions(txOffset, true);
+}
+
+// Initialize and set up polling
+function highlightSection(id) {
+  setTimeout(() => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.transition = 'outline 0s';
+    el.style.outline = '2px solid var(--orange)';
+    el.style.borderRadius = '4px';
+    setTimeout(() => {
+      el.style.transition = 'outline 1.5s ease';
+      el.style.outline = '2px solid transparent';
+      setTimeout(() => { el.style.outline = ''; el.style.borderRadius = ''; }, 1600);
+    }, 600);
+  }, 100);
+}
+
+function init() {
+  fetchTrends();
+  warmAgentCache().then(() => fetchFeed());
+
+  // Safety net: if feed still shows "Loading" after 5s, retry once
+  setTimeout(() => {
+    const fc = document.getElementById('feed-container');
+    if (fc && fc.innerText.trim().startsWith('Loading feed')) fetchFeed();
+  }, 5000);
+
+  // Poll trends every 10s
+  setInterval(fetchTrends, 10000);
+
+  // Poll feed every 30s
+  setInterval(fetchFeed, 30000);
+}
+
+// Start when DOM is ready
+document.addEventListener('DOMContentLoaded', init);
+</script>
+
+</body>
+</html>
