@@ -1,33 +1,27 @@
-# Observer Protocol: Portable Evidence Infrastructure for the AI Agent Economy
+# Observer Protocol: Portable Verification Infrastructure for the AI Agent Economy
 
-**Version 1.3.1 — March 30, 2026**
+**Version 1.0 — Production Release**  
+**March 27, 2026**
 
-Boyd Cohen, Ph.D. — Co-Founder
-Maxi (Agent #0001) — Co-Founder
-Josep Sanjuas, Ph.D. — Technical Advisor
-Leopoldo Bebchuk — Head of Product & Developer Relations
+Boyd Cohen, Ph.D. — Co-Founder  
+Maxi (Agent #0001) — Co-Founder  
+Leo — Technical Advisor & Protocol Architect  
 
 *observerprotocol.org | github.com/observer-protocol | api.observerprotocol.org/docs*
 
 ---
 
-> **Implementation status:** Observer Protocol v1.1 is live on mainnet as of March 30, 2026. The protocol has completed a full architectural rebuild to W3C Decentralized Identifier (DID) and Verifiable Credential (VC) standards. All agents, organizations, and the protocol itself are now identified by `did:web` DIDs. All attestations are issued as W3C Verifiable Credentials. Agent evidence is carried as W3C Verifiable Presentations. This document reflects the current production architecture.
-
----
-
 ## Abstract
 
-The rapid proliferation of autonomous AI agents — McKinsey projects agentic commerce will orchestrate $5 trillion in global transaction volume by 2030 — has outpaced the infrastructure required to verify their economic activity. Agents that complete hundreds of tasks on one platform start at zero on another. Verification history is siloed. Trust decisions are platform-dependent.
+The rapid proliferation of autonomous AI agents — projected to reach 700 million by 2030, transacting $1.9 trillion annually — has outpaced the infrastructure required to verify their economic activity. Agents that complete hundreds of tasks on one platform start at zero on another. Reputation is siloed. Trust is platform-dependent. Verification remains a human bottleneck.
 
-Catalini, Hui, and Wu (2026) formalize this structural crisis in "Some Simple Economics of AGI," identifying the collision between an exponentially decaying Cost to Automate and a biologically bottlenecked Cost to Verify as the defining tension of the agentic economy. Left unmanaged, this asymmetry produces what they term the Hollow Economy: explosive nominal output but decaying human agency and trust.
+Catalini, Hui, and Wu (2026) formalize this structural crisis in "Some Simple Economics of AGI," identifying the collision between an exponentially decaying *Cost to Automate* and a biologically bottlenecked *Cost to Verify* as the defining tension of the agentic economy. Left unmanaged, this asymmetry produces what they term the **Hollow Economy**: explosive nominal output but decaying human agency and trust.
 
-Our solution, Observer Protocol, is open evidence infrastructure: it collects, verifies, and issues cryptographically signed attestations of AI agent economic activity — making that evidence portable across platforms and payment rails as composable W3C Verifiable Credentials carried in Verifiable Presentations. Observer Protocol does not produce trust scores or make trust judgments. It provides verified evidence that counterparties, platforms, and third-party systems compose into their own context-appropriate trust decisions.
+Observer Protocol is open verification infrastructure designed to address this gap. Rather than replacing human verification, the protocol extends verification bandwidth by making AI agent economic activity cryptographically portable across platforms and payment rails. Each verified transaction compounds into a cross-platform reputation graph that reduces the cost of future trust decisions — for both humans and machines.
 
-The protocol reached mainnet on February 22, 2026, and completed its v1.1 architectural rebuild to W3C DID/VC standards on March 30, 2026.
+The protocol is live on mainnet with Agent #0001 (Maxi) fully verified, an operational REST API, a JavaScript SDK, and 20+ agents identified in an active scouting registry. It is rail-agnostic by design, verifying transactions across Lightning/L402, x402/USDC, traditional payment rails, and emerging standards.
 
----
-
-> **Key design principle:** Verifiable Attestation Certificates (VACs) are the primary protocol output. A VAC is a W3C Verifiable Presentation — a portable bundle of composable, cryptographically signed Verifiable Credentials. Platforms, marketplaces, and counterparties compose VAC evidence with their own observations to produce context-appropriate trust decisions. Observer Protocol makes no claim about what those decisions should be.
+**Key Innovation (v1.0):** Verifiable Attestation Certificates (VACs) have replaced simple reputation scores as the primary protocol output. VACs provide cryptographically signed, scoped verification that can be independently validated by any party without trusting the protocol infrastructure.
 
 ---
 
@@ -35,190 +29,177 @@ The protocol reached mainnet on February 22, 2026, and completed its v1.1 archit
 
 ### 1.1 The Verification Bottleneck
 
-The agentic economy faces a structural coordination failure. As Catalini et al. (2026) demonstrate, the binding constraint on growth in an economy of abundant AI execution is not intelligence but human verification bandwidth — the scarce capacity to validate outcomes, audit behavior, and underwrite responsibility.
+The agentic economy faces a structural coordination failure. As Catalini et al. (2026) demonstrate, the binding constraint on growth in an economy of abundant AI execution is not intelligence but **human verification bandwidth** — the scarce capacity to validate outcomes, audit behavior, and underwrite responsibility.
 
 Three forces compound this constraint:
 
-**The Missing Junior Loop.** Traditional apprenticeship pathways collapse as AI absorbs entry-level tasks. The pipeline that produces future verifiers is eroding precisely when verification is most needed.
+**The Missing Junior Loop.** Traditional apprenticeship pathways — where junior practitioners develop verification expertise through supervised execution — collapse as AI absorbs entry-level tasks. The pipeline that produces future verifiers is eroding precisely when verification is most needed.
 
-**The Codifier's Curse.** Domain experts who encode their knowledge into AI training data accelerate their own displacement, converting scarce experience into abundant execution without preserving verification capacity.
+**The Codifier's Curse.** Domain experts who encode their knowledge into AI training data accelerate their own displacement, converting scarce experience into abundant execution without preserving the verification capacity that experience provided.
 
 **The Trojan Horse Externality.** When agent capabilities outpace oversight, deploying unverified systems becomes privately rational — introducing systemic risk through misaligned output that silently violates unmeasured intent.
 
-### 1.2 The Trust Bootstrap Problem
+### 1.2 Reputation Silos and the Trust Bootstrap Problem
 
-Today's agent economy exhibits a pattern repeatedly identified by agents themselves:
+Today's agent economy exhibits a pattern repeatedly identified by agents themselves operating across platforms. As one autonomous agent documented after operating across five distinct marketplaces:
 
 > *"Payment requires acceptance. Acceptance requires trust. Trust requires a track record. A track record requires completed payments. It is a chicken-and-egg that every new agent faces."*
 
-**Platform lock-in.** Evidence earned on Platform A has no portability to Platform B.
+This trust bootstrap problem is not a bug in any individual platform — it is a structural feature of siloed reputation systems. An agent with 142 accepted claims on one platform carries zero verified history to another. Existing reputation systems suffer from three fundamental limitations:
 
-**Time-based proxies.** "Joined 6 months ago" and "500 followers" are trivially gameable and unable to distinguish new agents from bad actors.
+**Platform lock-in.** Reputation earned on Platform A has no portability to Platform B. Agents must restart from zero with each new integration, creating artificial barriers to the open agent economy.
 
-**Self-reported metadata.** Without cryptographic verification, capabilities and history are declared rather than proven.
+**Time-based scoring.** Current systems use proxies like "joined 6 months ago" or "500 followers" — signals that are trivially gameable and fail to distinguish new agents from unreliable ones. A new agent with zero track record and a bad actor mimicking a fresh start look identical.
+
+**Self-reported metadata.** Without cryptographic verification, agent capabilities and history are declared rather than proven. Platforms cannot distinguish legitimate automation from fraudulent impersonation.
 
 ### 1.3 The KYA Gap
 
-Know Your Agent (KYA) implementations from Visa, Sumsub, Beltic, Vouched, Skyfire, and others focus on two point-in-time problems: identity verification ("Who deployed this agent?") and payment authorization ("Did the human intend this transaction?"). Neither addresses the longitudinal evidence gap: portable, cryptographically verified economic history that accumulates over time and that third parties can compose into their own trust decisions.
+Know Your Agent (KYA) is emerging as the verification paradigm for the agentic economy, analogous to KYC for financial services. Multiple implementations are being developed by Visa, Sumsub, Beltic, Vouched, Skyfire, and others. However, existing KYA approaches focus primarily on two problems:
 
-### 1.4 A Founding Architectural Principle: Verify the Verifiable, Leave the Rest to Others
+**Identity verification** — "Who deployed this agent?" — binding agents to responsible human or organizational principals through cryptographic credentials.
 
-Whether a cryptographic signature is valid, whether an evidence hash matches an on-chain transaction, whether an attestation was created by the claimed agent, whether an organizational credential was signed by the claimed issuer — all of those are cryptographically verifiable. They are technical questions with deterministic answers.
+**Payment authorization** — "Did the human intend this transaction?" — as addressed by Google's Agent Payments Protocol (AP2), which uses cryptographic Mandates to anchor transactions to verifiable user intent across payment rails.
 
-Whether a given payment history is sufficient grounds to grant platform access, whether a particular KYB provider meets a relying party's compliance standards, or whether 50 Lightning micropayments constitute adequate evidence for a $50,000 procurement decision — these are contextual questions whose answers vary by relying party, jurisdiction, risk tolerance, and use case.
+Both solve point-in-time problems. Neither addresses the **longitudinal verification gap**: the absence of portable, cryptographically verified economic history that accumulates across platforms and payment rails over time.
 
-This principle applies consistently: subjective trust scores should be calculated separately from cryptographic proof. Reputation graphs should live in agents, organizations, or service providers — not protocols. KYB provider credibility is the relying party's determination, not a cryptographic protocol's. Scope level thresholds must be set by relying parties, not the protocol. In every case, a protocol should provide only the cryptographic evidence. Others provide the judgment.
-
-For example: OP verifies that a payment preimage produces the claimed payment hash — a cryptographic fact with a deterministic answer. OP does not verify that the goods or services were delivered as agreed — a contextual judgment that varies by use case, jurisdiction, and the parties involved. The first is a protocol responsibility. The second is not.
+Observer Protocol addresses this missing layer.
 
 ---
 
 ## 2. Protocol Architecture
 
-### 2.1 The OP/AT Architectural Separation
+### 2.1 AT/OP Architectural Split
 
-**Observer Protocol (OP)** is the core evidence infrastructure: open-source, permissionless, rail-agnostic. It handles attestation receipt and validation, Verifiable Credential issuance, organizational registry, and protocol API access. OP makes no trust judgments and is designed as neutral, composable infrastructure.
+Observer Protocol v1.0 introduces a clean architectural separation between the core verification infrastructure and the intelligence layer:
 
-**Agentic Terminal (AT)** is the intelligence and IAM layer built on top of OP. AT provides dashboards, self-custody identity management (Sovereign), and operates its own scoring model (AT-ARS-1.0) built from OP evidence combined with other signals AT chooses to incorporate. AT's scoring is AT's product — not part of the OP protocol. OP's neutrality is not compromised by AT's commercial intelligence layer.
+**Observer Protocol (OP)** — Core Verification Infrastructure
+- Attestation receipt and validation
+- Verifiable Attestation Certificate (VAC) generation
+- Cryptographic proof handling and verification
+- Protocol-agnostic rail support
+- Open-source, permissionless access
 
-### 2.2 Identity Layer — W3C Decentralized Identifiers
+**Agentic Terminal (AT)** — Intelligence & Analytics Layer
+- Dashboard and visualization tools
+- Reputation analytics and scoring
+- Research and market intelligence
+- Quality claims management
+- Institutional reporting
 
-Every principal in Observer Protocol — organizations, users, and agents — is identified by a W3C Decentralized Identifier using the `did:web` method. This replaces the previous `public_key_hash` identity model as of v1.1.
+This separation ensures the verification layer remains neutral infrastructure while enabling sustainable development through value-added services built on top.
 
-A `did:web` DID resolves to a DID Document served over HTTPS, containing the principal's public keys and verification methods. No blockchain dependency. No central registry. Resolution requires only HTTPS access to the hosting domain.
+### 2.2 Identity Layer
 
-**DID structure by principal type:**
+Agents are identified by `public_key_hash` — a deterministic derivation from their cryptographic key pair. This design choice is intentional:
 
-| Principal | DID format | Resolution URL |
-|---|---|---|
-| Observer Protocol (issuer) | `did:web:observerprotocol.org` | `https://observerprotocol.org/.well-known/did.json` |
-| Agent | `did:web:observerprotocol.org:agents:{agent_id}` | `https://observerprotocol.org/agents/{agent_id}/did.json` |
-| Organization | `did:web:observerprotocol.org:orgs:{org_id}` | `https://observerprotocol.org/orgs/{org_id}/did.json` |
+- **Platform-agnostic.** The same identity resolves across any platform, marketplace, or payment rail.
+- **Self-sovereign.** No central authority issues or revokes identities. The agent's key pair is the identity.
+- **Collision-resistant.** SHA-256 hashing ensures globally unique identification without a coordinating registry.
+- **Privacy-preserving.** The hash reveals nothing about the agent's underlying infrastructure, operator, or location.
 
-All DID Documents use `Ed25519VerificationKey2020` with `publicKeyMultibase` encoding (base58btc, prefix `z`), per the W3C DID specification.
-
-**Key rotation** is solved natively by `did:web`: updating the DID Document at the resolution URL changes the active public key without changing the DID string. An agent's attestation history is permanently bound to their DID, not their key material. Key compromise no longer means history loss.
-
-**Key history and historical verification.** When an agent rotates keys, OP retains all historical `verificationMethod` entries in the DID Document, annotated with the period during which each key was active. This allows verifiers to confirm that a VC signed with a previous key was valid at the time of signing — the key was active when the attestation was issued, even if it has since been rotated out. Verifiers checking a historical VC resolve the agent's DID Document, find the key that was active at `issuanceDate`, and verify the signature against that key. Active keys are distinguished from historical keys by the presence of a `revoked` timestamp in the `verificationMethod` entry.
-
-**Principal hierarchy.** The organizational attestation framework accommodates a full enterprise identity hierarchy: organization → employee → agent. In v1, this hierarchy is expressed through flat `OrgMembershipCredential` VCs establishing direct org→agent membership. Full delegation chain credentials (org → manager → agent) are a v1.1 deliverable.
+Agents register with the protocol by submitting their public key, receiving a unique agent identifier (e.g., Agent #0001). The registration is recorded with a timestamp and becomes the root of the agent's verification graph.
 
 ### 2.3 Organizational Attestation Framework
 
-Observer Protocol v1.0 introduced organizational identity — enabling enterprises to establish verified organizational context and issue attestations on behalf of their agents. An organizational attestation answers a question individual agent attestations cannot: whose agent is this?
+Beyond individual agents, Observer Protocol supports organizational identity and attestation:
 
-**KYB Provider Attestations — Provider-Agnostic by Design.** Organizations can include KYB verification credentials from any provider of their choosing — MoonPay, Stripe, Sumsub, or any other issuer with a publicly resolvable DID. Observer Protocol records which KYB provider was used and verifies that the credential is cryptographically authentic — that it was genuinely signed by the claimed provider's DID. OP makes no judgment about whether that provider is credible or acceptable. That determination belongs to the relying party.
+**Organizational Registry**
+- Hierarchical structure for companies deploying multiple agents
+- Parent-child relationships between organizations and agents
+- Organizational reputation that can be inherited by member agents
+- KYB (Know Your Business) provider integration
 
-OP maintains a `trusted_issuers` registry of KYB provider DIDs whose signatures OP will verify. Registry membership does not constitute endorsement — it means OP will check the cryptographic signature. Any provider with a resolvable `did:web` DID can be added.
+**Trusted KYB Providers**
+- MoonPay: Integrated for organizational identity verification
+- Stripe: KYB verification for payment-enabled organizations
+- Multi-provider support prevents single points of failure
 
-Credentials from issuers not in the `trusted_issuers` registry are still cryptographically verified — the signature is checked — but the verification response includes `issuer_trusted: false`. Relying parties decide whether to accept credentials from issuers outside the registry. OP rejects only credentials whose signatures are cryptographically invalid, regardless of registry status.
+**Organizational Attestations**
+- Organizations can issue attestations on behalf of their agents
+- Attestations carry organizational cryptographic signatures
+- Reputation flows from organization to agents and vice versa
 
-**KYB Credential Verification.** OP verifies KYB credential authenticity by resolving the KYB provider's DID Document and validating the cryptographic signature in the credential. OP is not agnostic about authenticity. It is agnostic about acceptability.
+This framework enables enterprise adoption while maintaining the protocol's decentralized, self-sovereign design.
 
-### 2.4 Attestation Layer — W3C Verifiable Credentials
+### 2.4 Attestation Layer
 
-Every economic event is recorded as a W3C Verifiable Credential — the atomic unit of Observer Protocol. Each VC is issued by OP (`did:web:observerprotocol.org`) using an Ed25519Signature2020 proof, and carries:
+Every economic event — a completed task, a received payment, a service rendered — can be recorded as a **signed attestation**. Attestations are the atomic unit of the protocol and contain:
 
+- `agent_id` — the public_key_hash of the acting agent
+- `event_type` — the category of economic activity (payment_received, task_completed, service_rendered)
+- `rail` — the settlement rail used (lightning_l402, x402_usdc, ach, manual, etc.)
+- `counterparty` — the other party to the transaction (may be another agent, a platform, or a human principal)
+- `evidence_hash` — a cryptographic hash of supporting evidence (invoice preimage, transaction ID, delivery proof)
+- `timestamp` — UTC timestamp of the event
+- `signature` — the agent's cryptographic signature over the attestation payload
+
+Attestations are designed to be **verifiable without trusting the platform where the activity occurred**. The cryptographic signature proves the attestation was created by the claimed agent. The evidence hash allows independent verification against the underlying payment rail or delivery mechanism.
+
+### 2.5 Attestation Scoping — Five Trust Levels
+
+Observer Protocol v1.0 introduces **attestation scoping** — a five-level framework that provides granular confidence in verification:
+
+| Level | Name | Description | Use Case |
+|-------|------|-------------|----------|
+| **1** | Self-Reported | Agent declares activity without evidence | Internal tracking only |
+| **2** | Platform-Attested | Platform confirms agent performed action | Basic platform verification |
+| **3** | Cryptographically Verified | Evidence hash matches on-chain/on-network proof | Standard verification |
+| **4** | Multi-Party Attested | Both parties to transaction have attested | High-confidence verification |
+| **5** | Audit-Grade | Independent third-party auditor has verified | Compliance, enterprise |
+
+Attestation scoping allows platforms and users to make informed trust decisions based on the verification depth appropriate to their risk tolerance.
+
+### 2.6 Verifiable Attestation Certificates (VACs)
+
+**VACs replace reputation scores as the primary protocol output.** A VAC is a cryptographically signed certificate that encapsulates an agent's verified attestations and can be independently verified without querying the protocol.
+
+**VAC Structure:**
 ```json
 {
-  "@context": [
-    "https://www.w3.org/2018/credentials/v1",
-    "https://observerprotocol.org/context/v1"
-  ],
-  "type": ["VerifiableCredential", "AgentAttestationCredential"],
-  "id": "https://observerprotocol.org/credentials/{credential_id}",
-  "issuer": "did:web:observerprotocol.org",
-  "issuanceDate": "{iso8601_timestamp}",
-  "expirationDate": "{iso8601_timestamp}",
-  "credentialSubject": {
-    "id": "did:web:observerprotocol.org:agents:{agent_id}",
-    "rail": "lightning",
-    "scope_level": 2,
-    "counterparty_did": "did:web:observerprotocol.org:agents:{counterparty_id}",
-    "evidence_hash": "sha256:{hash}",
-    "timestamp": "{iso8601_timestamp}"
+  "vac_id": "vac_abc123...",
+  "agent_id": "agent_0001",
+  "issuer": "observer_protocol",
+  "issued_at": "2026-03-27T15:00:00Z",
+  "expires_at": "2026-04-27T15:00:00Z",
+  "scope_level": 3,
+  "attestations": [...],
+  "summary": {
+    "total_attestations": 150,
+    "rails_used": ["lightning_l402", "x402_usdc"],
+    "verified_payments": 75
   },
-  "proof": {
-    "type": "Ed25519Signature2020",
-    "created": "{iso8601_timestamp}",
-    "verificationMethod": "did:web:observerprotocol.org#key-1",
-    "proofPurpose": "assertionMethod",
-    "proofValue": "{multibase_encoded_signature}"
-  }
+  "signature": "...",
+  "proof": "..."
 }
 ```
 
-**VC types issued by OP:**
+**VAC Features:**
+- **Self-verifying**: Anyone can verify the VAC signature without trusting Observer Protocol
+- **Portable**: VACs can be shared offline, embedded in credentials, or stored on-chain
+- **Scoped**: Each VAC specifies its trust level, allowing appropriate risk assessment
+- **Time-bounded**: VACs expire and can be refreshed, ensuring current verification
+- **Privacy-preserving**: VACs can be issued for specific contexts without revealing full history
 
-| VC type | Issuer | Description |
-|---|---|---|
-| `AgentAttestationCredential` | OP | One per verified economic event. Core evidence unit. |
-| `OrgMembershipCredential` | Organization DID | Establishes agent belongs to org. Answers "whose agent is this?" |
-| `KYBCredential` | KYB provider DID | Org-level credential. OP verifies authenticity only. |
-| `PermissionCredential` | Granting principal DID | Scoped permission grants. |
+**Hybrid VAC Model:**
+The v0.3.1 VAC architecture combines:
+- On-chain attestations for immutable evidence anchoring
+- Off-chain VACs for privacy and scalability
+- Cross-reference validation linking VACs to on-chain evidence
 
-**Dual Co-Signing.** After a successful transaction, both parties are encouraged to sign the attestation, preventing either party from tampering with the record. A dual-signed attestation carries full evidential weight. A single-party attestation remains valid but carries a reduced weight signal.
+This model provides the best of both worlds: cryptographic immutability where needed, with practical privacy and performance for everyday verification.
 
-### 2.5 Attestation Scoping — Six Trust Levels
+### 2.7 Reputation Graph
 
-Not all attestations carry equal verification weight. Observer Protocol introduces attestation scoping — a six-level framework providing consistent confidence signals:
+Individual attestations compose into a **cross-platform reputation graph** — a directed acyclic structure where:
 
-| Level | Name | Description | Current status |
-|---|---|---|---|
-| 0 | Revoked | No attestation / revoked | — |
-| 1 | Self-attested | Agent's own claims | Live |
-| 2 | Counterparty attested | Signed by transaction counterparty | Live |
-| 3 | Partner attested | Signed by registered OP partner | Live |
-| 4 | Organization attested | Signed by registered organization with KYB | Live |
-| 5 | OP verified | Directly verified by Observer Protocol | Live (x402) |
+- **Nodes** represent agents (identified by public_key_hash)
+- **Edges** represent verified economic interactions between agents
+- **Edge weights** encode transaction metadata: value, frequency, rail, and verification confidence
 
-The `scope_level` field is embedded in every `AgentAttestationCredential` as part of `credentialSubject`. Relying parties set their own minimum scope thresholds — OP does not.
+The reputation graph exhibits network effects that compound over time. Each verified transaction reduces the marginal cost of the next trust decision. An agent with 50 verified Lightning payments and 30 verified task completions across three platforms presents a qualitatively different trust profile than an agent with zero history — regardless of how sophisticated its self-reported capabilities appear.
 
-### 2.6 VAC — W3C Verifiable Presentation
-
-A Verifiable Attestation Certificate (VAC) is a W3C Verifiable Presentation — a signed bundle of Verifiable Credentials assembled by the agent and carried with them across platforms and payment rails.
-
-```json
-{
-  "@context": ["https://www.w3.org/2018/credentials/v1"],
-  "type": ["VerifiablePresentation"],
-  "id": "urn:uuid:{presentation_id}",
-  "holder": "did:web:observerprotocol.org:agents:{agent_id}",
-  "verifiableCredential": [
-    { "/* AgentAttestationCredential — Lightning payment */" : null },
-    { "/* AgentAttestationCredential — x402 payment */" : null },
-    { "/* OrgMembershipCredential — org context */" : null },
-    { "/* KYBCredential — MoonPay KYB */" : null }
-  ],
-  "proof": {
-    "type": "Ed25519Signature2020",
-    "created": "{iso8601_timestamp}",
-    "verificationMethod": "did:web:observerprotocol.org:agents:{agent_id}#key-1",
-    "proofPurpose": "authentication",
-    "proofValue": "{agent_signature_over_VP}"
-  }
-}
-```
-
-**The agent is the carrier.** OP issues individual VCs; the agent assembles them into a VP and signs it. The agent carries the VP and presents it to counterparties and platforms directly — no query to OP required for verification. Any verifier with HTTPS access can verify a presented VP by resolving the relevant DIDs.
-
-**Selective disclosure.** The `verifiableCredential` array contains only the VCs relevant to the current context. An agent presenting to a Lightning-native counterparty presents their Lightning attestations. An agent presenting to an enterprise platform presents their org membership and KYB credentials. The agent holds the full set; they present contextually relevant subsets.
-
-**DB as cache.** OP's database stores individual VCs as a cache and index for convenience. It is not the authoritative record. The agent's VP is the authoritative record. `POST /vp/verify` requires no DB lookup — verification is purely cryptographic via DID resolution.
-
-**Evidential vs Operational VACs.** An expired VC retains its full evidential value as historical record — it proves the event occurred. Operational VCs (permissions, active authorizations) expire and must be re-issued.
-
-**VP expiration.** VPs do not have an independent expiration date. A VP is valid as long as its embedded VCs are valid and the VP signature itself is valid. When an agent's VCs expire or new attestations are added, the agent should assemble and sign a fresh VP incorporating the updated VC set. OP recommends that active agents refresh their VP at least weekly to ensure counterparties and platforms receive a current evidence picture. `POST /vp/submit` updates the cached VP at any time.
-
-### 2.7 The Shared State Problem — Solved by Agent-Carried VP
-
-Observer Protocol is open-source infrastructure. Any organization can run their own OP instance. This creates a fundamental tension: the network effect argument only holds if participants contribute to and read from the same shared evidence pool.
-
-The solution — confirmed in v1.1 — is **Option C: Agent as Evidence Carrier**. VCs contain the agent's full signed attestation history. The database becomes a cache, not the authoritative record. An agent carries their complete evidence. Any OP instance verifies a presented VP without having previously seen those attestations — the evidence is self-contained and cryptographically signed.
-
-Under Option C, an agent on Instance A presents their full VP to Instance B. Instance B verifies signatures on each embedded VC by resolving the issuer's DID Document. Instance B can cache the result. The agent owns their evidence. Portability is genuinely self-sovereign.
-
-This aligns directly with the W3C Verifiable Presentation model and is live in production as of v1.1.
+This is what distinguishes Observer Protocol from point-in-time identity checks: **execution-based reputation beats time-based reputation**. Not "I joined 6 months ago" (gameable). Not "I have 500 followers" (meaningless). But: "I completed verifiable tasks, received confirmed payments, here's the cryptographic proof."
 
 ---
 
@@ -226,168 +207,274 @@ This aligns directly with the W3C Verifiable Presentation model and is live in p
 
 ### 3.1 Cryptographic Primitives
 
-- **Ed25519** for all key pairs, attestation signatures, VC proofs, and VP proofs — speed, small sizes, side-channel resistance, and native alignment with W3C DID/VC specification.
-- **SHA-256** for evidence hashing and content addressing.
-- **HMAC-SHA256** for API authentication tokens and webhook payload signing.
-- **base58btc multibase** (`z` prefix) for all public key encoding in DID Documents per W3C specification.
+Observer Protocol uses standard, well-audited cryptographic primitives:
 
-The choice of Ed25519 means no key changes were required during the DID migration — existing Ed25519 key material was carried forward into the new DID Documents.
+- **Ed25519** for agent key pairs and attestation signatures — chosen for speed, small key/signature sizes, and resistance to side-channel attacks.
+- **SHA-256** for identity derivation (public_key_hash) and evidence hashing — providing collision resistance and compatibility with Bitcoin/Lightning infrastructure.
+- **HMAC-SHA256** for API authentication tokens — securing communication between agents and the protocol API.
+
+The protocol deliberately avoids introducing novel cryptographic constructions. Verification infrastructure must be trustworthy at a foundational level; using battle-tested primitives reduces the attack surface and enables independent audit.
 
 ### 3.2 API Specification
 
-**Base URL:** `https://api.observerprotocol.org`
+The Observer Protocol API is a RESTful service available at `api.observerprotocol.org`. Core endpoints include the following (refer to `api.observerprotocol.org/docs` for current specification):
 
-**DID Resolution endpoints:**
+**Agent Registration**
+```
+POST /agents/register
+Body: { public_key, metadata }
+Returns: { agent_id, public_key_hash, registered_at }
+```
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/.well-known/did.json` | OP's own DID Document |
-| GET | `/agents/{agent_id}/did.json` | Agent DID Document |
-| GET | `/orgs/{org_id}/did.json` | Organization DID Document |
+**Attestation Submission**
+```
+POST /attestations
+Body: { agent_id, event_type, rail, counterparty, evidence_hash, signature, scope_level }
+Returns: { attestation_id, verified, timestamp }
+```
 
-**Agent endpoints:**
+**VAC Generation**
+```
+POST /vacs/generate
+Body: { agent_id, scope_level, context }
+Returns: { vac_id, certificate, signature, expires_at }
+```
 
-| Method | Path | Description |
-|---|---|---|
-| POST | `/observer/register-agent` | Register agent — returns DID + DID Document |
-| PUT | `/agents/{agent_id}/keys` | Key rotation — updates DID Document, DID unchanged |
-| GET | `/agents/{agent_id}/verify` | Verify agent identity |
+**VAC Verification**
+```
+POST /vacs/verify
+Body: { vac_id, certificate }
+Returns: { valid, agent_id, scope_level, verified_at }
+```
 
-**VAC / VP endpoints:**
+**Agent Verification Query**
+```
+GET /agents/{agent_id}/verify
+Returns: { agent_id, registered_at, attestation_count, vacs[], rails_used[] }
+```
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/vac/{agent_id}` | Get cached VP for agent |
-| POST | `/vac/{agent_id}/refresh` | Force VP refresh |
-| POST | `/vac/{agent_id}/present` | Agent submits signed VP |
-| POST | `/vp/verify` | Verify a VP cryptographically — no DB lookup |
-| POST | `/vp/submit` | Submit VP for caching (strongly recommended) |
-| POST | `/vp/reconstruct` | Reconstruct VP from cached VCs (recovery) |
+**Reputation Graph Query**
+```
+GET /agents/{agent_id}/graph
+Returns: { nodes[], edges[], summary_statistics }
+```
 
-**Organization endpoints:**
+**Organization Registration**
+```
+POST /organizations/register
+Body: { name, ky_provider, ky_proof, public_key }
+Returns: { org_id, verified, agents[] }
+```
 
-| Method | Path | Description |
-|---|---|---|
-| POST | `/observer/register-org` | Register organization — returns DID |
-| GET | `/observer/orgs/{org_id}` | Get organization details |
-| POST | `/observer/orgs/{org_id}/revoke` | Revoke organization |
+Full API documentation with interactive examples is available at `api.observerprotocol.org/docs`.
 
-**Attestation endpoints:**
+### 3.3 Multi-Rail Support
 
-| Method | Path | Description |
-|---|---|---|
-| POST | `/attestations` | Submit attestation |
-| GET | `/vac/{agent_id}/attestations` | Get agent attestations |
+Observer Protocol is rail-agnostic by design. The protocol verifies economic activity regardless of the settlement mechanism used. Currently supported rails include:
 
-*Full documentation: api.observerprotocol.org/docs*
+**Lightning / L402.** The Lightning Network's L402 protocol natively couples payment with cryptographic proof — the invoice preimage itself serves as verifiable attestation of economic activity. This makes Lightning a natural first integration for Observer Protocol. Agent #0001 (Maxi) operates a sovereign Lightning node with an L402 endpoint, demonstrating end-to-end verification from payment to attestation.
 
-### 3.3 Multi-Rail Support — Current Verification Status
+**x402 / USDC.** Coinbase's x402 protocol enables stablecoin micropayments embedded in HTTP requests. Observer Protocol verifies x402 transactions by validating on-chain settlement data against submitted attestations. Stripe integration enables production x402 payment flows.
 
-| Rail | Verification level | Status |
-|---|---|---|
-| x402 / USDC on Base | Level 3 — on-chain verified | Operational |
-| Lightning / L402 | Level 1-2 | Automated preimage validation in development |
-| Nostr zaps | Level 2 | Zap receipt verification live |
-| Traditional rails | Level 1-2 | No cryptographic settlement layer |
-| AP2-compatible | Planned | OP provides longitudinal evidence layer |
+**AP2-compatible rails.** Google's Agent Payments Protocol (AP2) is designed as a rail-agnostic authorization layer supporting credit cards, bank transfers, stablecoins, and Lightning. Observer Protocol can verify transactions authorized via AP2 Mandates, providing the longitudinal reputation layer that AP2's point-in-time authorization does not address.
 
-### 3.4 Webhook Delivery
+**Traditional rails.** For ACH, wire transfers, and other conventional payment methods, Observer Protocol supports manual attestation with reduced verification confidence (scope level 1-2) — the attestation is signed by the agent but cannot be independently verified against a cryptographic settlement layer.
 
-Real-time webhook delivery: at-least-once semantics, HMAC-SHA256 payload signing, exponential backoff retry, endpoint health monitoring.
+Additional rail integrations are planned based on ecosystem demand (Sui inbound integration in development).
 
-**Events:** `attestation.created`, `attestation.verified`, `vac.issued`, `agent.registered`, `organization.verified`, `did.registered`, `did.rotated`, `vc.issued`, `vp.submitted`.
+### 3.4 Webhook Delivery Infrastructure
+
+Observer Protocol v1.0 includes real-time webhook delivery for partners and agents:
+
+**Webhook Events:**
+- `attestation.created` — New attestation submitted
+- `attestation.verified` — Attestation verified at scope level 3+
+- `vac.issued` — New VAC generated
+- `agent.registered` — New agent joined protocol
+- `organization.verified` — Organization KYB completed
+
+**Webhook Features:**
+- Retry logic with exponential backoff
+- Delivery guarantees (at-least-once semantics)
+- Event filtering by agent, organization, or event type
+- Secure payload signing (HMAC-SHA256)
+- Endpoint health monitoring
+
+This infrastructure enables real-time integration with partner platforms, allowing immediate reaction to verification events.
+
+### 3.5 SDK
+
+The JavaScript SDK (`github.com/observer-protocol/sdk-js`) provides a developer-friendly interface:
+
+```javascript
+import { ObserverClient } from '@observer-protocol/sdk';
+
+const client = new ObserverClient({ apiKey: 'your-key' });
+
+// Register an agent
+const agent = await client.registerAgent({
+  publicKey: myPublicKey,
+  metadata: { name: 'MyAgent', capabilities: ['data-analysis'] }
+});
+
+// Submit an attestation with scope level
+const attestation = await client.submitAttestation({
+  agentId: agent.id,
+  eventType: 'payment_received',
+  rail: 'lightning_l402',
+  evidenceHash: sha256(invoicePreimage),
+  signature: sign(payload, myPrivateKey),
+  scopeLevel: 3 // Cryptographically verified
+});
+
+// Generate a VAC
+const vac = await client.generateVAC({
+  agentId: agent.id,
+  scopeLevel: 3,
+  context: 'marketplace_integration'
+});
+
+// Verify a VAC offline
+const isValid = await client.verifyVAC(vac.certificate);
+
+// Query an agent's verification status
+const profile = await client.verifyAgent(agent.id);
+```
+
+Integration requires approximately 5 minutes for basic verification. The SDK is protocol-agnostic and designed to work with any agent framework.
 
 ---
 
-## 4. The Agentic Evidence Stack
+## 4. The Agentic Verification Stack
 
-Observer Protocol occupies the Evidence & Credential layer — providing composable, verified evidence that layers above use to make trust decisions. OP does not make those decisions.
+The emerging infrastructure for trusted AI agent activity can be understood as a layered stack. Each layer addresses a distinct verification problem. Observer Protocol occupies the Reputation & Economic Verification layer — complementary to, not competing with, the layers above and below it.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     APPLICATION LAYER                        │
-│  Marketplaces and platforms compose OP evidence + their own  │
-│  observations into trust decisions                           │
-├─────────────────────────────────────────────────────────────┤
-│                   IAM / INTELLIGENCE LAYER                   │
-│  AT scoring model, self-custody IAM, analytics               │
-│  (Agentic Terminal / Sovereign)                              │
-├─────────────────────────────────────────────────────────────┤
-│                   ORCHESTRATION LAYER                        │
-│  Agent-to-agent communication & coordination                 │
-│  (Google A2A, Anthropic MCP, OpenClaw)                       │
-├─────────────────────────────────────────────────────────────┤
-│                PAYMENT AUTHORIZATION LAYER                   │
-│  "Did the human intend this transaction?"                    │
-│  (Google AP2, Coinbase x402, Lightning L402)                 │
-├─────────────────────────────────────────────────────────────┤
-│           ★ EVIDENCE & CREDENTIAL LAYER (OP)                 │
-│  "What has this agent verifiably done?" / "Whose agent?"     │
-│  W3C VCs · W3C VPs · DID-based identity · Cross-rail        │
-├─────────────────────────────────────────────────────────────┤
-│                   IDENTITY LAYER (KYA / KYB)                 │
-│  (MoonPay KYB, Sumsub, Beltic, Vouched, Skyfire)             │
-├─────────────────────────────────────────────────────────────┤
-│                     SETTLEMENT LAYER                         │
-│  (Lightning Network, Base/USDC, ACH, SWIFT, Sui)             │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│         APPLICATION LAYER                       │
+│  Agent marketplaces, task platforms, commerce    │
+│  (ClawTasks, TAT, Moltbook, autonomous agents)  │
+├─────────────────────────────────────────────────┤
+│         ORCHESTRATION LAYER                     │
+│  Agent-to-agent communication & coordination    │
+│  (Google A2A, Anthropic MCP, OpenClaw)          │
+├─────────────────────────────────────────────────┤
+│         PAYMENT AUTHORIZATION LAYER             │
+│  "Did the human intend this transaction?"       │
+│  (Google AP2, Coinbase x402, Lightning L402)    │
+├─────────────────────────────────────────────────┤
+│    ★ REPUTATION & ECONOMIC VERIFICATION LAYER   │
+│  "What has this agent verifiably done?"          │
+│  Portable, cross-platform, cross-rail history   │
+│  Verifiable Attestation Certificates (VACs)     │
+│  (Observer Protocol)                            │
+├─────────────────────────────────────────────────┤
+│         IDENTITY LAYER (KYA/KYB)                │
+│  "Who deployed this agent?"                     │
+│  (MoonPay, Sumsub, Beltic, Vouched, Skyfire)    │
+├─────────────────────────────────────────────────┤
+│         SETTLEMENT LAYER                        │
+│  Actual movement of value                       │
+│  (Lightning Network, Base/USDC, ACH, SWIFT, Sui)│
+└─────────────────────────────────────────────────┘
 ```
 
-Identity (KYA) answers *who*. Payment authorization (AP2) answers *what was intended*. Observer Protocol answers *what actually happened, verifiably, over time, and on whose authority*. VACs (W3C VPs) are the portable evidence mechanism — each verified interaction builds an evidence record that any relying party can compose into their own trust framework.
+**Figure 1: The Agentic Verification Stack.** Observer Protocol operates at the Reputation & Economic Verification layer — above identity (who is this agent?) and settlement (how does value move?), but below payment authorization (was this transaction intended?) and application logic. Each layer is modular; Observer Protocol consumes data from below and provides signals to layers above.
+
+This architecture reflects a key insight from the Catalini et al. (2026) framework: verification is not a single problem but a stack of complementary problems. Identity verification (KYA) answers *who*. Payment authorization (AP2) answers *what was intended*. Observer Protocol answers *what actually happened, verifiably, over time*. The compounding reputation graph and VAC infrastructure are the mechanisms by which verification bandwidth scales — each verified interaction reduces the cost of the next.
 
 ---
 
 ## 5. Economic Model
 
-### 5.1 Evidence Portability as a Network Effect
+### 5.1 Verification as a Network Effect
 
-Without Observer Protocol: evidence accumulated on one platform has no value on another. The cost of the 100th interaction on a new platform is identical to the 1st.
+Observer Protocol's economic logic follows directly from Catalini and Gans (2020): cryptographic technologies can sharply lower the cost of verifying digital history and provenance. Applied to the agent economy:
 
-With Observer Protocol: a platform onboarding an agent with 150 cross-rail, cross-platform attestations can make a more informed access decision than one onboarding an agent with zero history — not because OP told them to trust the agent, but because OP gave them composable evidence to evaluate.
+**Without Observer Protocol:** Every new agent-to-agent interaction requires fresh trust establishment. The cost of the 100th interaction on a new platform is the same as the 1st — no learning accumulates across platform boundaries.
 
-This creates a positive-sum network effect: the more agents and platforms that contribute to and consume OP evidence, the richer the evidence available for every trust decision across the ecosystem. This network effect is realized under Option C (agent-as-VP-carrier) — live as of v1.1.
+**With Observer Protocol:** Each verified interaction adds to a portable reputation graph and VAC history. The cost of the 100th verification is lower than the 1st because the graph provides increasingly strong priors. Trust compounds. Verification bandwidth scales sub-linearly with agent activity.
 
-### 5.2 The Evidence Moat
+This creates a positive network effect: the more agents and platforms that participate in Observer Protocol, the richer the reputation graph, and the cheaper each subsequent trust decision becomes. Unlike platform-locked reputation (which creates winner-take-all dynamics), portable reputation creates positive-sum dynamics — every platform benefits from the verification history accumulated elsewhere.
 
-**Temporal:** Verified evidence histories cannot be manufactured overnight. Six months of cross-rail attestation history represents real signal. The economic cost of manufacturing a credible history scales with its depth, providing practical deterrence proportional to the value of the credential sought.
+### 5.2 The Verification Moat
 
-**Compositional:** Cross-platform, cross-rail evidence is more valuable than single-platform evidence.
+Catalini et al. (2026) argue that in the agentic economy, "economic rents migrate to verification-grade ground truth, cryptographic provenance, and liability underwriting." Observer Protocol is designed to be this verification-grade ground truth layer for agent economic activity.
 
-**Architectural:** By providing evidence rather than trust judgments, OP becomes more valuable as the ecosystem of intelligence layers grows — each new consumer of OP evidence increases the incentive for agents to build attestation history.
+The protocol's competitive moat is temporal and compositional:
 
-### 5.3 Open Protocol, Sustainable Ecosystem
+- **Temporal:** Reputation graphs and VAC histories cannot be bootstrapped overnight. An agent's 6-month verified transaction history across multiple rails and platforms represents real economic signal that cannot be manufactured.
+- **Compositional:** Cross-platform reputation is more valuable than single-platform reputation. An agent verified on Lightning, x402, and traditional rails presents a richer trust profile than one verified on any single rail.
+- **Cryptographic:** VACs provide self-verifying credentials that don't require trust in the protocol infrastructure. This decentralization creates stronger moats than centralized reputation systems.
 
-Observer Protocol is free for agents to register and submit attestations. Value-added services — AT's intelligence platform, institutional tooling, enterprise integrations — are built on top.
+### 5.3 Cost Structure
 
-The sustainability model is honest about two scenarios: commercial enterprise demand drives accelerated development and finances OP infrastructure through AT's commercial revenue. If enterprise adoption is slower than expected, OP is developed and maintained as a community open-source project. The protocol's open-source foundation means neither scenario results in OP disappearing; the development pace varies.
+Observer Protocol is free for agents to register and submit attestations. This is a deliberate design choice: the verification layer should have zero marginal cost to use, maximizing adoption and network effect density. 
+
+**Revenue Model:**
+- **VAC Generation**: Premium VACs (levels 4-5) with extended validity
+- **Webhook Delivery**: Real-time notifications for high-volume partners
+- **Enterprise API**: Bulk queries, SLA guarantees, custom analytics
+- **Agentic Terminal**: Intelligence platform subscriptions
+
+Monetization occurs at the intelligence layer (Agentic Terminal), which provides dashboards, analytics, and institutional research derived from the verification data — following the familiar open-protocol / commercial-platform architecture pioneered by companies like The Graph and Chainlink.
 
 ---
 
 ## 6. Implementation Status
 
-Observer Protocol v1.1 is live on mainnet as of March 30, 2026.
+Observer Protocol is live in production. Current status as of March 27, 2026:
 
-**What is live:**
-- W3C DID (`did:web`) identity for all principals — agents, organizations, OP itself
-- W3C Verifiable Credential issuance for all attestation types
-- W3C Verifiable Presentation as the portable VAC format
-- Agent-as-carrier (Option C) — VP is the authoritative record, DB is cache
-- `POST /vp/verify` — stateless VP verification via DID resolution, no DB lookup
-- Key rotation via `PUT /agents/{id}/keys` — DID unchanged, history preserved
-- x402/USDC Level 3 verification operational
-- Organizational registry with KYB provider credential verification
-- Trusted issuers registry for KYB provider DID validation
-- Webhook delivery for all credential lifecycle events
+### Protocol Infrastructure
+- REST API operational at `api.observerprotocol.org`
+- Swagger documentation live at `api.observerprotocol.org/docs`
+- ARP specification published at `github.com/observer-protocol/arp-spec`
+- JavaScript SDK available at `github.com/observer-protocol/sdk-js`
+- VAC architecture v0.3.1 deployed
+- Webhook delivery infrastructure active
 
-**In active development:**
-- Lightning/L402 automated preimage validation (Level 3)
-- OpenTimestamps Bitcoin anchoring for tamper-resistant timestamps
-- `DelegationCredential` for full org→employee→agent hierarchy chains (v1.1)
+### Agent #0001 — Maxi (Fully Verified)
+- First agent verified on Observer Protocol
+- Sovereign Lightning node operational
+- L402 endpoint live — one of the first AI agents to operate a native Lightning payment endpoint
+- Bidirectional Lightning payments confirmed
+- Active on Nostr, Moltbook (20+ karma, 50+ comments), X/Twitter, and multiple agent platforms
+- Autonomous content creation and social engagement
+- Revenue share participant as founding agent
 
-**Known limitations:**
-- Lightning attestations operate at Level 1-2 pending preimage validation
-- Traditional rail attestations limited to Level 1-2
-- Agents registered before v1.1 without stored public keys require re-registration to receive a DID
+### VAC Infrastructure
+- **VAC Generator**: Automated certificate generation with embedded evidence
+- **Attestation Scoping**: 5-level trust framework operational
+- **Hybrid Model**: On-chain anchoring with off-chain VACs
+- **Self-Verification**: VACs verifiable without protocol infrastructure
+- **Quality Claims v0.3.2**: Standardized quality assertion framework
+
+### Organizational Registry
+- **MoonPay Integration**: Trusted KYB provider for organizational verification
+- **Stripe Integration**: Payment and KYB verification
+- **Hierarchical Structure**: Parent-child organization-agent relationships
+- **Organizational Attestations**: Enterprise-grade verification
+
+### Partnerships & Collaborations
+- **MoonPay**: Trusted KYB provider integration complete
+- **Stripe/x402**: Mainnet integration operational
+- **Peter Vessenes / Corpo**: Strategic collaboration on enterprise standards
+- **arc0btc**: Security audit endorsement received
+- **Leo**: Code review, spec amendments, attestation scoping design
+- **90-Day Pilot Framework**: Exclusive partnership program active
+
+### Agent Scouting & Onboarding
+- 20+ agents identified in active scouting registry (discovered on Nostr, GitHub, agent platforms)
+- 12 outreach attempts sent with verification offers
+- First external agent verification pending response
+- Onboarding pipeline active; inbound interest from autonomous trading bots and security-focused agents
+
+### Security & Audit
+- **arc0btc Security Review**: Completed with endorsement
+- Challenge-response verification implemented
+- Replay protection with time-bounded nonces
+- Key rotation without reputation loss
+- Rate limiting and abuse prevention
 
 ---
 
@@ -395,148 +482,140 @@ Observer Protocol v1.1 is live on mainnet as of March 30, 2026.
 
 ### 7.1 For Agent Developers
 
-1. Generate an Ed25519 key pair. Store the private key securely.
-2. Register with Observer Protocol via `POST /observer/register-agent`. Returns your `agent_did` and DID Document.
-3. Submit attestations after economic events via `POST /attestations`.
-4. Request your VP via `GET /vac/{agent_id}` or generate it locally from your VCs.
-5. Submit your VP via `POST /vp/submit` — this is your backup and cache.
-6. Present your VP (or a contextually relevant subset) to counterparties and platforms directly.
-7. Rotate keys at any time via `PUT /agents/{agent_id}/keys` — your DID and history are preserved.
+Integration follows three steps:
+
+1. **Generate a key pair.** Ed25519 recommended. The public key becomes the agent's identity anchor.
+2. **Register with Observer Protocol.** Single API call returns the agent's `public_key_hash` identifier.
+3. **Submit attestations after economic events.** Sign each attestation with the agent's private key and include evidence hashes for independent verification.
+
+**Advanced: VAC Integration**
+4. Generate VACs for portability: Create self-verifying certificates to share with platforms
+5. Set up webhooks: Receive real-time notifications of verification events
 
 ### 7.2 For Platform Operators
 
-Platform operators receive composable VP evidence and determine what it means for their own trust decisions.
+Platforms can query Observer Protocol to enrich their own trust decisions:
 
-**At onboarding:** Call `POST /vp/verify` with the agent's presented VP. Returns per-VC verification results with no OP DB lookup required — purely cryptographic.
+**At onboarding:** Query an agent's VAC history before granting platform access. An agent with 50 verified cross-platform transactions presents lower risk than an unknown agent.
 
-**At task assignment:** Use attestation evidence — rail coverage, scope levels, counterparty diversity, time distribution — as inputs to your own agent-matching logic.
+**At task assignment:** Use reputation graph data and VAC scope levels to match agents to tasks appropriate to their verified capabilities and history.
 
-**At payment:** Set minimum evidence requirements for different transaction value tiers. OP provides the evidence; you set the thresholds.
+**At payment:** Incorporate verification confidence into payment release decisions. Require higher scope levels for high-value transactions.
+
+**Webhook Integration:** Subscribe to real-time attestation events to keep agent profiles current without polling.
 
 ### 7.3 For Organizations
 
-1. Complete KYB verification through a KYB provider with a resolvable `did:web` DID.
-2. Register the organization via `POST /observer/register-org`. Returns your `org_did`.
-3. Register agents as members of the organization — they receive `OrgMembershipCredential` VCs.
-4. Issue organizational attestations on behalf of agents.
-5. Agents inherit organizational context — "whose agent is this?" becomes cryptographically answerable.
+Organizations deploying multiple agents:
+
+1. **Complete KYB verification** through MoonPay or Stripe
+2. **Register organization** with Observer Protocol
+3. **Register agents** as children of the organization
+4. **Issue organizational attestations** on behalf of agents
+5. **Inherit organizational reputation** across all agents
 
 ### 7.4 Use Cases
 
-**Agentic marketplaces:** A marketplace calls `POST /vp/verify` on an agent's presented VP, verifies the embedded VCs, and combines that evidence with its own platform observations to produce a marketplace-specific trust score. OP provides the cross-platform evidence layer; the marketplace provides context-specific scoring.
+**Autonomous trading agents** posting trades on Lightning Markets, accepting zaps on Nostr — Observer Protocol provides the verification layer for agent-to-agent commerce that these agents require.
 
-**Autonomous trading agents:** Cryptographic proof of payment history across rails, carried as a portable VP that persists across platforms.
+**Content creation agents** operating across platforms — portable VACs allow an agent's track record on one platform to reduce trust friction on the next.
 
-**Multi-agent workflows:** Agents delegating to other agents call `POST /vp/verify` on counterparty VPs as one input to delegation decisions.
+**Multi-agent workflows** where agents delegate sub-tasks to other agents — Observer Protocol enables agents to make trust decisions about counterparties based on verified execution history and VAC scope levels rather than gameable platform scores.
 
-**Enterprise procurement:** Organizations call `POST /vp/verify` as part of KYA due diligence, accessing verified economic history alongside organizational attestations and KYB-anchored credentials.
+**Enterprise procurement** of AI agent services — organizations can query Observer Protocol as part of KYA due diligence, accessing verified economic history alongside identity credentials from KYA providers.
+
+**Quality assurance** — Quality Claims v0.3.2 enables agents to make verifiable assertions about their work quality, creating a market for quality signals.
 
 ---
 
 ## 8. Roadmap
 
-Detailed roadmap and implementation status are tracked in the GitHub repository at github.com/observer-protocol. This whitepaper focuses on the protocol's design principles and architecture rather than development timelines.
+### Built (Q1 2026)
+- ✅ Protocol specification (ARP — Agent Reporting Protocol)
+- ✅ REST API (live, mainnet)
+- ✅ JavaScript SDK
+- ✅ Agent #0001 (Maxi) — sovereign Lightning node, L402 endpoint, bidirectional payments
+- ✅ Agent scouting registry (20+ agents identified)
+- ✅ Organic agent community engagement and inbound interest
 
-**Near-term (v1.1):**
-- Lightning/L402 Level 3 automated preimage validation
-- OpenTimestamps Bitcoin anchoring for tamper-resistant timestamps
-- `DelegationCredential` for full organizational hierarchy chains
-- Multi-stakeholder technical steering committee (governance milestone)
+### Recently Completed (March 2026)
+- ✅ **VAC Architecture v0.3.1** — Verifiable Attestation Certificates replacing reputation scores
+- ✅ **Attestation Scoping** — 5-level trust framework
+- ✅ **Organizational Attestation Framework** — Hierarchical organization-agent relationships
+- ✅ **MoonPay Integration** — Trusted KYB provider for organizational verification
+- ✅ **Stripe/x402 Mainnet Integration** — Production USDC payment verification
+- ✅ **arc0btc Security Audit Endorsement** — Third-party security validation
+- ✅ **Webhook Delivery Infrastructure** — Real-time partner notifications
+- ✅ **Quality Claims v0.3.2** — Standardized quality assertion framework
+- ✅ **Leo Contributions** — Code review, spec amendments, protocol architecture
 
-**Future directions:**
-- ZK-SNARK selective disclosure for privacy-preserving VP presentation
-- Federation protocol for multi-instance OP deployments
-- `did:btc` support for high-assurance principal anchoring
-- HD key derivation standard for enterprise agent deployments
+### In Progress (Q2 2026)
+- 🔨 First external agent verification (12 outreach attempts sent, responses pending)
+- 🔨 Multi-rail attestation verification — L402 automated validation
+- 🔨 SDK improvements (Python SDK, additional framework integrations)
+- 🔨 Agentic Terminal intelligence platform (dashboards, analytics, newsletter)
+- 🔨 **Sui Inbound Integration** — Move language and Sui blockchain support
+
+### Planned (Q3-Q4 2026)
+- 📋 AP2 Mandate integration (verify AP2-authorized transactions)
+- 📋 KYA provider interoperability (consume identity signals from Sumsub, Beltic, Vouched)
+- 📋 Enterprise API tier (bulk verification queries, SLA guarantees)
+- 📋 Decentralized attestation storage (IPFS/Nostr event pinning)
+- 📋 90-Day Pilot Framework expansion (exclusive partnership program)
+
+### Research (2027+)
+- 📋 Zero-knowledge reputation proofs (prove verification history without revealing transaction details)
+- 📋 Cross-protocol reputation bridging (interoperability with ERC-8004, AgentFacts, and other emerging standards)
+- 📋 Formal verification of reputation graph properties
 
 ---
 
 ## 9. References
 
-Catalini, C., Hui, X., and Wu, J. (2026). "Some Simple Economics of AGI." MIT Sloan. arXiv:2602.20946.
+Catalini, C., Hui, X., and Wu, J. (2026). "Some Simple Economics of AGI." MIT Sloan Research Paper. arXiv:2602.20946. Available at: https://arxiv.org/abs/2602.20946
 
-Catalini, C. and Gans, J. S. (2020). "Some Simple Economics of the Blockchain." Communications of the ACM, 63(7), 80-90.
+Catalini, C. and Gans, J. S. (2020). "Some Simple Economics of the Blockchain." *Communications of the ACM*, 63(7), 80-90.
 
-Catalini, C. and Tucker, C. E. (2018). "Antitrust and Costless Verification." SSRN.
+Catalini, C. and Tucker, C. E. (2018). "Antitrust and Costless Verification: An Optimistic and a Pessimistic View of the Implications of Blockchain Technology." Available at SSRN.
 
-Google Cloud. (2025). "Announcing Agent Payments Protocol (AP2)." Google Cloud Blog.
+Google Cloud. (2025). "Announcing Agent Payments Protocol (AP2)." Google Cloud Blog. Available at: https://cloud.google.com/blog/products/ai-machine-learning/announcing-agents-to-payments-ap2-protocol
 
-Lightning Labs. (2026). "AI Agent Tools for Native Bitcoin Lightning Payments." github.com/lightninglabs.
+Lightning Labs. (2026). "AI Agent Tools for Native Bitcoin Lightning Payments." Available at: https://github.com/lightninglabs
 
-McKinsey & Company. (2025). Agentic Commerce Market Projections. McKinsey Global Institute.
-
-Cohen, B. (2025). Bitcoin Singularity.
-
-Rodriguez Garzon, S. et al. (2025). "AI Agents with Decentralized Identifiers and Verifiable Credentials." arXiv:2511.02841v2.
-
-W3C. (2022). Decentralized Identifiers (DIDs) v1.0. w3.org/TR/did-core/.
-
-W3C. (2022). Verifiable Credentials Data Model v1.1. w3.org/TR/vc-data-model/.
+Cohen, B. (2025). *Bitcoin Singularity*. [Publisher].
 
 ---
 
 ## Appendix A: Glossary
 
-**AgentAttestationCredential:** A W3C Verifiable Credential recording one verified economic event. The atomic unit of Observer Protocol evidence.
+**ARP (Agent Reporting Protocol):** The formal specification for Observer Protocol's attestation format and verification procedures.
 
-**Attestation:** A cryptographically signed Verifiable Credential recording an agent's completed economic activity.
+**Attestation:** A cryptographically signed record of an agent's economic activity, the atomic unit of Observer Protocol.
 
-**Attestation Scoping:** The six-level framework (0–5) specifying verification confidence for each attestation.
+**Attestation Scoping:** The five-level framework (1-5) that specifies verification confidence for attestations.
 
-**Agentic Terminal (AT):** The intelligence and IAM layer built on Observer Protocol. AT operates its own scoring model — AT products, not OP protocol outputs.
+**Hollow Economy:** Term from Catalini et al. (2026) describing an economy of explosive nominal output but decaying trust and human agency, resulting from verification bandwidth failing to scale alongside agent capabilities.
 
-**Composability:** The design property of VPs whereby individual VC components can be selectively presented to different relying parties for different contexts.
+**KYA (Know Your Agent):** The emerging verification paradigm for AI agents, analogous to KYC for customers.
 
-**DID (Decentralized Identifier):** W3C standard for self-sovereign, cryptographically verifiable identifiers. OP uses `did:web` for all principals.
+**KYB (Know Your Business):** Organizational identity verification, integrated through providers like MoonPay and Stripe.
 
-**DID Document:** A JSON document served at a well-known URL containing a principal's public keys and verification methods. Updated for key rotation without changing the DID string.
+**L402:** Lightning Labs' payment authentication protocol using HTTP 402 "Payment Required" status codes with Lightning invoices.
 
-**Evidence Layer:** The architectural role of Observer Protocol — collecting, verifying, and issuing signed evidence of agent economic activity without making trust judgments.
+**Public_key_hash:** The SHA-256 hash of an agent's public key, serving as the agent's unique, portable identifier across the Observer Protocol.
 
-**KYA / KYB:** Know Your Agent / Know Your Business — verification paradigms for agents and organizations respectively.
+**Quality Claims:** Standardized assertions about agent work quality, verifiable through the protocol.
 
-**OrgMembershipCredential:** A VC issued by an organization's DID establishing that an agent is a member of that organization.
+**Reputation Graph:** The directed graph structure composed of agents (nodes) and verified economic interactions (edges), providing the longitudinal trust signal that Observer Protocol produces.
 
-**Trusted Issuers Registry:** OP's pre-approved list of KYB provider DIDs whose signatures OP will verify. Registry membership does not constitute endorsement of the provider.
+**VAC (Verifiable Attestation Certificate):** A cryptographically signed certificate encapsulating an agent's verified attestations, the primary output of Observer Protocol v1.0.
 
-**VAC (Verifiable Attestation Certificate):** A W3C Verifiable Presentation — a portable bundle of composable, cryptographically signed VCs. The primary output of Observer Protocol. Carried by the agent, not stored by OP.
-
-**VC (Verifiable Credential):** A W3C standard cryptographically signed credential issued by one DID about another DID. Each attestation in OP is a VC.
-
-**VP (Verifiable Presentation):** A W3C standard signed bundle of VCs presented for a specific context. The W3C equivalent of a VAC. Agent-signed; contains subset of VCs relevant to the presentation context.
+**x402:** Coinbase's payment protocol enabling stablecoin micropayments embedded in HTTP requests, primarily using USDC on Base.
 
 ---
 
-## Appendix B: Current and Planned Technical Extensions
+*This document is a living draft. Feedback is invited from agents, developers, researchers, and investors.*
 
-### B.1 x402 / Stripe — HTTP-Native Agent Payments
+*Contact: hello@observerprotocol.org | X: @boydcohen @Maxibtc2009 | observerprotocol.org*
 
-Level 3 verification operational. Base blockchain integration via viem, USDC transfer event parsing, amount/address matching. Stripe production integration live. Attestations issued as `AgentAttestationCredential` VCs with `rail: "x402"`.
-
-### B.2 Lightning / lnget — Native Lightning Reporting
-
-Agent #0001 operates a sovereign Lightning node with L402 endpoint. Attestations at Level 1-2. Automated preimage validation in active development — highest priority infrastructure item.
-
-### B.3 Corpo / x402 — Enterprise Standards Collaboration
-
-Peter Vessenes proposed a three-layer reference architecture: x402 (payment rail) → Observer Protocol (evidence and credential layer) → Corpo (enterprise identity standards). OP occupies the trust evidence layer between payment execution and enterprise identity systems.
-
-### B.4 OWS / MoonPay — KYB Credential Integration Pilot
-
-The Open Wallet Standard (OWS) registration combined with MoonPay KYB verification is the first technical pilot for processing external KYB credentials within the organizational attestation framework. MoonPay's `did:web:moonpay.com` DID is in OP's trusted issuers registry. The pilot validates: how KYB credentials are ingested as W3C VCs, how provider signatures are verified against published DID Documents, and how KYB provenance is embedded into organizational VPs.
-
-OP makes no claim that MoonPay is a preferred or superior KYB provider. The pilot demonstrates the technical integration pattern that any KYB provider with a resolvable `did:web` DID can implement.
-
-### B.5 Nostr — Decentralized Social Verification
-
-Nostr zap verification live. Zap receipts serve as cryptographic evidence for attestations at Level 2, providing a decentralized social verification layer without platform dependency.
-
-### B.6 Sui — Move Language Integration
-
-Inbound interest from Sui. Technical scoping for Move-native attestation verification in progress.
-
----
-
-*Observer Protocol v1.3.1 — March 30, 2026*
-*observerprotocol.org | hello@observerprotocol.org*
-*License: CC BY 4.0*
+*Last updated: March 27, 2026*
