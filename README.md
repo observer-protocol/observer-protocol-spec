@@ -146,3 +146,56 @@ sudo -u postgres createdb observer_protocol
 ## License
 
 MIT
+
+---
+
+## Agentic Identity Protocol (AIP) v0.3.1
+
+**The credential layer for sovereign agents.**
+
+AIP provides cryptographic identity, delegation, and verification infrastructure for economically autonomous AI agents.
+
+### What's AIP?
+
+AIP (Agentic Identity Protocol) enables:
+- **DID-based identity** — W3C `did:web` standard for agent identity
+- **KYB attestation** — Verifiable Credentials for organization verification
+- **Hierarchical delegation** — Organizations delegate authority to agents with scoped constraints
+- **Cross-rail verification** — Proof of payment across Lightning, Solana, EVM, and more
+- **Portable reputation** — Credentials travel with the agent, not the platform
+
+### Key Documents
+
+| Document | Description |
+|----------|-------------|
+| [AIP-IMPLEMENTATION.md](./AIP-IMPLEMENTATION.md) | Full technical implementation guide |
+| [AIP-SUMMARY.md](./AIP-SUMMARY.md) | Quick reference for developers |
+| [AIP-TYPE-REGISTRY.md](./AIP-TYPE-REGISTRY.md) | Governed enumerated values |
+| [spec/AIP-v0.3.1.md](./spec/AIP-v0.3.1.md) | Formal specification |
+
+### Core Components
+
+```python
+# Issue KYB VC
+POST /aip/credentials/kyb
+
+# Issue Delegation Credential
+POST /aip/credentials/delegation
+
+# Verify delegation chain
+GET /aip/chain/verify/{agent_id}
+
+# Query Type Registry
+GET /aip/type-registry/allowed_counterparty_types
+```
+
+### Architectural Principles
+
+1. **did:web ONLY** — No fallback methods (Section 9.2)
+2. **Eager verification** — Full chain verified at query time (Section 9.3)
+3. **Minimal remediation** — Structure only; AT provides content (Section 9.1)
+4. **PR-governed registry** — Type extensions via spec repo (Section 9.5)
+
+**Status:** ✅ Implemented — All 23 tests passing
+
+**Sign-off:** Leo Bebchuk (Head of Product & Developer Relations)
