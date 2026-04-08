@@ -16,18 +16,36 @@ Observer Protocol enables agents to verify and attest payments across multiple b
 | Base | 📅 Planned | Base L2 payments |
 
 ## Quick Start
-
+### Clone and setup
 ```bash
-# Clone and setup
+git clone https://github.com/observer-protocol/observer-protocol-spec/
 cd observer-protocol
 pip install -r api/requirements.txt
+```
 
-# Set database URL
+### Install PostgreSQL
+PostgreSQL is a required component of the OP Server
+
+Download the installer from:
+https://www.postgresql.org/download/
+
+After installation, access the PostgreSQL server via PgAdmin and create a new database called "observer_protocol"
+
+
+# Set the database URL as an environment variable
+Powershell
+```powershell
+$Env:DATABASE_URL="postgresql://user:pass@localhost/observer_protocol"
+```
+
+Bash
+```bash
 export DATABASE_URL="postgresql://user:pass@localhost/observer_protocol"
+```
 
 # Start API
 python api/main.py
-```
+
 
 ## API Endpoints
 
