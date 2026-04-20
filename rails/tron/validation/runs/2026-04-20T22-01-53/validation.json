@@ -1,0 +1,33 @@
+{
+  "timestamp": "2026-04-20T22:01:53.314Z",
+  "network": "shasta",
+  "config": {
+    "network": "shasta",
+    "apiEndpoint": "https://api.shasta.trongrid.io",
+    "apiKey": "test-key...-key",
+    "usdtContract": null,
+    "minConfirmations": 1,
+    "isTestnet": true
+  },
+  "sender": {
+    "did": "did:op:test-sender",
+    "address": "TWzLVf5pDZ1BzS9Pq5dZq1Zz9Vz3KmqL2"
+  },
+  "receiver": {
+    "did": "did:op:test-receiver",
+    "address": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
+  },
+  "balances": {
+    "pre": null,
+    "post": null
+  },
+  "transaction": null,
+  "receipt": null,
+  "submission": null,
+  "trustScore": {
+    "before": null,
+    "after": null
+  },
+  "errors": [],
+  "status": "failed"
+}

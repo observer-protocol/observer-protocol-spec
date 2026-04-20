@@ -1,0 +1,16 @@
+{
+  "name": "tron",
+  "version": "1.0.0",
+  "description": "Complete TRON rail integration with counterparty-signed receipt architecture. Supports both Shasta testnet and TRON mainnet via environment-based configuration.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "base58": "^2.0.1"
+  }
+}
