@@ -5666,3 +5666,447 @@ def get_wallets(request: Request):
         cursor.close()
         conn.close()
 
+
+# ============================================================
+# TRON RAIL ENDPOINTS
+# ============================================================
+
+import subprocess
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+
+# Thread pool for Node.js subprocess calls
+_tron_executor = ThreadPoolExecutor(max_workers=4)
+
+class TRONReceiptSubmitRequest(BaseModel):
+    vc: dict = Field(..., description="Signed tron_receipt_v1 Verifiable Credential")
+
+class TRONReceiptResponse(BaseModel):
+    success: bool
+    receipt_id: Optional[str] = None
+    vc_id: Optional[str] = None
+    verified: bool = False
+    error: Optional[str] = None
+
+class TRONTrustScoreResponse(BaseModel):
+    agent_id: str
+    trust_score: float = Field(..., ge=0.0, le=100.0)
+    receipt_count: int = 0
+    unique_counterparties: int = 0
+    total_trx_volume: str = "0"
+    total_stablecoin_volume: str = "0"
+    org_affiliated_count: int = 0
+    last_activity: Optional[str] = None
+    components: dict = Field(default_factory=dict)
+
+class TRONLeaderboardEntry(BaseModel):
+    agent_id: str
+    trust_score: float
+    receipt_count: int
+    unique_counterparties: int
+    total_volume: str
+    rank: int
+
+def _call_tron_rail(method: str, params: dict) -> dict:
+    """Call TRON rail library via Node.js subprocess."""
+    rail_path = "/media/nvme/observer-protocol/rails/tron/index.mjs"
+    
+    js_code = f"""
+    import('/media/nvme/observer-protocol/rails/tron/index.mjs')
+        .then(rail => {{
+            const result = rail.{method}({json.dumps(params)});
+            console.log(JSON.stringify(result));
+        }})
+        .catch(err => {{
+            console.log(JSON.stringify({{error: err.message}}));
+        }});
+    """
+    
+    try:
+        result = subprocess.run(
+            ['node', '-e', js_code],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return json.loads(result.stdout.strip().split('\n')[-1])
+        return {"error": "Rail call failed", "stderr": result.stderr}
+    except subprocess.TimeoutExpired:
+        return {"error": "TRON rail timeout"}
+    except Exception as e:
+        return {"error": str(e)}
+
+def _compute_tron_trust_score(metrics: dict) -> dict:
+    """Compute trust score from TRON metrics using weighted components."""
+    if not metrics or not metrics.get('agent_id'):
+        return {
+            "trust_score": 0.0,
+            "components": {}
+        }
+    
+    # Weights per spec
+    weights = {
+        "receipts": 0.25,
+        "counterparties": 0.25,
+        "org": 0.20,
+        "recency": 0.15,
+        "volume": 0.15
+    }
+    
+    # Receipt score (logarithmic scale, max 50 receipts = 100%)
+    receipt_count = metrics.get('tron_receipt_count', 0)
+    receipt_score = min(100, (receipt_count / 50) * 100) if receipt_count > 0 else 0
+    
+    # Counterparty score (diversity, max 20 unique = 100%)
+    counterparty_count = metrics.get('unique_tron_counterparties', 0)
+    counterparty_score = min(100, (counterparty_count / 20) * 100) if counterparty_count > 0 else 0
+    
+    # Organization score
+    org_count = metrics.get('org_affiliated_count', 0)
+    org_score = 100 if org_count > 0 else 50  # Boost for org affiliation
+    
+    # Recency score (hours since last activity)
+    last_tx = metrics.get('last_tron_tx')
+    if last_tx:
+        try:
+            last_dt = datetime.fromisoformat(str(last_tx).replace('Z', '+00:00'))
+            hours_ago = (datetime.now(timezone.utc) - last_dt).total_seconds() / 3600
+            recency_score = max(0, 100 - (hours_ago / 24) * 10)  # -10% per day
+        except:
+            recency_score = 50
+    else:
+        recency_score = 0
+    
+    # Volume score (combined TRX + stablecoin volume)
+    trx_vol = float(metrics.get('total_trx_volume', 0) or 0)
+    stable_vol = float(metrics.get('total_stablecoin_volume', 0) or 0)
+    total_usd_estimate = (trx_vol / 100) + stable_vol  # Rough TRX price estimate
+    volume_score = min(100, (total_usd_estimate / 10000) * 100)  # $10k = 100%
+    
+    # Compute weighted total
+    trust_score = (
+        receipt_score * weights['receipts'] +
+        counterparty_score * weights['counterparties'] +
+        org_score * weights['org'] +
+        recency_score * weights['recency'] +
+        volume_score * weights['volume']
+    )
+    
+    return {
+        "trust_score": round(trust_score, 2),
+        "components": {
+            "receipt_score": round(receipt_score, 2),
+            "counterparty_score": round(counterparty_score, 2),
+            "org_score": round(org_score, 2),
+            "recency_score": round(recency_score, 2),
+            "volume_score": round(volume_score, 2)
+        }
+    }
+
+@app.post("/api/v1/tron/receipts/submit", response_model=TRONReceiptResponse)
+async def submit_tron_receipt(body: TRONReceiptSubmitRequest):
+    """
+    Submit a signed tron_receipt_v1 Verifiable Credential for verification and storage.
+    """
+    vc = body.vc
+    
+    # Validate required fields
+    if not vc or not isinstance(vc, dict):
+        raise HTTPException(status_code=400, detail="Invalid VC: must be a JSON object")
+    
+    vc_id = vc.get('id')
+    if not vc_id:
+        raise HTTPException(status_code=400, detail="Invalid VC: missing 'id' field")
+    
+    # Check if receipt already exists
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "SELECT receipt_id, verified FROM tron_receipts WHERE vc_id = %s",
+            (vc_id,)
+        )
+        existing = cursor.fetchone()
+        if existing:
+            return TRONReceiptResponse(
+                success=True,
+                receipt_id=str(existing[0]),
+                vc_id=vc_id,
+                verified=existing[1],
+                error=None
+            )
+    finally:
+        cursor.close()
+        conn.close()
+    
+    # Call TRON rail for verification
+    rail_result = await asyncio.get_event_loop().run_in_executor(
+        _tron_executor,
+        lambda: _call_tron_rail('verifyAndPersistReceipt', {'vc': vc})
+    )
+    
+    if rail_result.get('error'):
+        raise HTTPException(status_code=400, detail=f"Verification failed: {rail_result['error']}")
+    
+    if not rail_result.get('valid'):
+        raise HTTPException(status_code=400, detail="VC signature verification failed")
+    
+    # Persist to database
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        credential_subject = vc.get('credentialSubject', {})
+        
+        cursor.execute("""
+            INSERT INTO tron_receipts (
+                vc_id, issuer_did, subject_did, subject_agent_id, rail, asset, amount,
+                tron_tx_hash, sender_address, recipient_address, token_contract,
+                network, tx_timestamp, confirmations, org_affiliation, verified,
+                tron_grid_verified, signature_verified, verification_error,
+                issued_at, expires_at, vc_document, receipt_hash
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (vc_id) DO NOTHING
+            RETURNING receipt_id
+        """, (
+            vc_id,
+            vc.get('issuer', {}).get('id', ''),
+            credential_subject.get('id', ''),
+            credential_subject.get('agentId'),
+            credential_subject.get('rail', 'tron'),
+            credential_subject.get('asset', ''),
+            str(credential_subject.get('amount', '')),
+            credential_subject.get('transactionHash', ''),
+            credential_subject.get('senderAddress', ''),
+            credential_subject.get('recipientAddress', ''),
+            credential_subject.get('tokenContract', ''),
+            credential_subject.get('network', 'mainnet'),
+            credential_subject.get('timestamp', datetime.now(timezone.utc).isoformat()),
+            credential_subject.get('confirmations', 0),
+            credential_subject.get('orgAffiliation'),
+            rail_result.get('valid', False),
+            rail_result.get('tronGridVerified', False),
+            rail_result.get('signatureVerified', False),
+            rail_result.get('error'),
+            vc.get('issuanceDate', datetime.now(timezone.utc).isoformat()),
+            vc.get('expirationDate', (datetime.now(timezone.utc) + timedelta(days=90)).isoformat()),
+            json.dumps(vc),
+            rail_result.get('receiptHash', hashlib.sha256(json.dumps(vc, sort_keys=True).encode()).hexdigest())
+        ))
+        
+        row = cursor.fetchone()
+        conn.commit()
+        
+        if row:
+            return TRONReceiptResponse(
+                success=True,
+                receipt_id=str(row[0]),
+                vc_id=vc_id,
+                verified=rail_result.get('valid', False),
+                error=None
+            )
+        else:
+            # Receipt was inserted by another concurrent request
+            cursor.execute(
+                "SELECT receipt_id, verified FROM tron_receipts WHERE vc_id = %s",
+                (vc_id,)
+            )
+            existing = cursor.fetchone()
+            return TRONReceiptResponse(
+                success=True,
+                receipt_id=str(existing[0]),
+                vc_id=vc_id,
+                verified=existing[1],
+                error=None
+            )
+            
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.get("/api/v1/tron/receipts/{agent_id}")
+async def get_tron_receipts(
+    agent_id: str,
+    verified_only: bool = Query(True, description="Only return verified receipts"),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0)
+):
+    """
+    List TRON receipts for a specific agent.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        if verified_only:
+            cursor.execute("""
+                SELECT 
+                    receipt_id, vc_id, issuer_did, rail, asset, amount,
+                    tron_tx_hash, sender_address, recipient_address, network,
+                    tx_timestamp, confirmations, org_affiliation, verified,
+                    issued_at, expires_at, received_at
+                FROM tron_receipts
+                WHERE subject_agent_id = %s AND verified = TRUE AND expires_at > NOW()
+                ORDER BY tx_timestamp DESC
+                LIMIT %s OFFSET %s
+            """, (agent_id, limit, offset))
+        else:
+            cursor.execute("""
+                SELECT 
+                    receipt_id, vc_id, issuer_did, rail, asset, amount,
+                    tron_tx_hash, sender_address, recipient_address, network,
+                    tx_timestamp, confirmations, org_affiliation, verified,
+                    issued_at, expires_at, received_at
+                FROM tron_receipts
+                WHERE subject_agent_id = %s
+                ORDER BY tx_timestamp DESC
+                LIMIT %s OFFSET %s
+            """, (agent_id, limit, offset))
+        
+        receipts = cursor.fetchall()
+        
+        # Get total count
+        cursor.execute(
+            "SELECT COUNT(*) FROM tron_receipts WHERE subject_agent_id = %s AND verified = TRUE AND expires_at > NOW()",
+            (agent_id,)
+        )
+        total = cursor.fetchone()[0]
+        
+        return {
+            "agent_id": agent_id,
+            "receipts": [dict(r) for r in receipts],
+            "total": total,
+            "limit": limit,
+            "offset": offset
+        }
+        
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.get("/api/v1/trust/tron/score/{agent_id}", response_model=TRONTrustScoreResponse)
+async def get_tron_trust_score(agent_id: str):
+    """
+    Get TRON trust score for a specific agent.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cursor.execute("""
+            SELECT * FROM v_tron_trust_metrics WHERE agent_id = %s
+        """, (agent_id,))
+        
+        metrics = cursor.fetchone()
+        
+        if not metrics:
+            # Return zero score for unknown agents
+            return TRONTrustScoreResponse(
+                agent_id=agent_id,
+                trust_score=0.0,
+                receipt_count=0,
+                unique_counterparties=0,
+                total_trx_volume="0",
+                total_stablecoin_volume="0",
+                org_affiliated_count=0,
+                last_activity=None,
+                components={}
+            )
+        
+        score_result = _compute_tron_trust_score(dict(metrics))
+        
+        return TRONTrustScoreResponse(
+            agent_id=agent_id,
+            trust_score=score_result['trust_score'],
+            receipt_count=metrics.get('tron_receipt_count', 0),
+            unique_counterparties=metrics.get('unique_tron_counterparties', 0),
+            total_trx_volume=str(metrics.get('total_trx_volume', 0) or 0),
+            total_stablecoin_volume=str(metrics.get('total_stablecoin_volume', 0) or 0),
+            org_affiliated_count=metrics.get('org_affiliated_count', 0),
+            last_activity=metrics.get('last_tron_tx').isoformat() if metrics.get('last_tron_tx') else None,
+            components=score_result['components']
+        )
+        
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.get("/api/v1/tron/receipts/{agent_id}/count")
+async def get_tron_receipt_count(agent_id: str):
+    """
+    Get count of TRON receipts for an agent.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT 
+                COUNT(*) as total,
+                COUNT(CASE WHEN verified = TRUE AND expires_at > NOW() THEN 1 END) as active,
+                COUNT(DISTINCT issuer_did) as unique_counterparties
+            FROM tron_receipts
+            WHERE subject_agent_id = %s
+        """, (agent_id,))
+        
+        row = cursor.fetchone()
+        return {
+            "agent_id": agent_id,
+            "total_receipts": row[0],
+            "active_receipts": row[1],
+            "unique_counterparties": row[2]
+        }
+        
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.get("/api/v1/trust/tron/leaderboard")
+async def get_tron_leaderboard(
+    limit: int = Query(10, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    min_receipts: int = Query(1, ge=0)
+):
+    """
+    Get TRON trust score leaderboard.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cursor.execute("""
+            SELECT * FROM v_tron_trust_metrics
+            WHERE tron_receipt_count >= %s
+            ORDER BY tron_receipt_count DESC, unique_tron_counterparties DESC
+            LIMIT %s OFFSET %s
+        """, (min_receipts, limit, offset))
+        
+        rows = cursor.fetchall()
+        
+        entries = []
+        for rank, row in enumerate(rows, start=offset + 1):
+            metrics = dict(row)
+            score_result = _compute_tron_trust_score(metrics)
+            
+            total_volume = (float(metrics.get('total_trx_volume', 0) or 0) / 100) + \
+                          float(metrics.get('total_stablecoin_volume', 0) or 0)
+            
+            entries.append({
+                "agent_id": metrics['agent_id'],
+                "trust_score": score_result['trust_score'],
+                "receipt_count": metrics.get('tron_receipt_count', 0),
+                "unique_counterparties": metrics.get('unique_tron_counterparties', 0),
+                "total_volume": str(round(total_volume, 2)),
+                "rank": rank
+            })
+        
+        return {
+            "entries": entries,
+            "limit": limit,
+            "offset": offset,
+            "total": len(entries)
+        }
+        
+    finally:
+        cursor.close()
+        conn.close()
+
