@@ -59,7 +59,6 @@ const CONFIG = {
   SETTLEMENT_TRON_ADDRESS: process.env.SETTLEMENT_TRON_ADDRESS || 'TW6usPjgS1p3SNqqad6FgSCu1fEeTD4My3',
   DEMO_AMOUNT_USDT: parseFloat(process.env.DEMO_AMOUNT_USDT || '1.00'),
   AUTO_MODE: process.env.AUTO_MODE === 'true',
-  SKIP_LIVE_TX: process.env.SKIP_LIVE_TX === 'true',
 };
 
 const MAINNET_USDT_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
@@ -231,35 +230,18 @@ async function act3PaymentExecution() {
     const approval = await question('\n  Proceed with live mainnet transaction? (yes/no): ');
     if (approval.toLowerCase() !== 'yes') {
       printWarning('Transaction cancelled by user');
-      if (CONFIG.SKIP_LIVE_TX) {
-        demoState.transactionHash = 'MOCK_' + Date.now().toString(16);
-        return { success: true, mock: true, txHash: demoState.transactionHash };
-      }
       return { success: false, cancelled: true };
     }
   }
   
   printSubHeader('Broadcasting Transaction');
   try {
-    // Generate mock transaction hash for demo
-    demoState.transactionHash = Array(64).fill(0).map(() => 
-      '0123456789abcdef'[Math.floor(Math.random() * 16)]
-    ).join('');
-    
-    printSuccess('Transaction broadcast successful!');
-    console.log(`\n  Transaction Hash: ${demoState.transactionHash}`);
-    console.log(`  TronScan: https://tronscan.org/#/transaction/${demoState.transactionHash}`);
-    
-    await sleep(3000);
-    printSuccess('Transaction confirmed on-chain!');
-    console.log(`  Block: ${Math.floor(Math.random() * 10000000) + 60000000}`);
-    console.log(`  Status: SUCCESS`);
-    
-    return { 
-      success: true, 
-      txHash: demoState.transactionHash,
-      tronscanUrl: `https://tronscan.org/#/transaction/${demoState.transactionHash}`
-    };
+    throw new Error(
+      "Real TronWeb broadcast not implemented. " +
+      "Spec 2 orchestrator is incomplete - the broadcast step requires " +
+      "integration with the working TronWeb pattern from Spec 1's validation script. " +
+      "Until implemented, the 4-act orchestrator cannot execute live demos."
+    );
   } catch (error) {
     printError(`Transaction failed: ${error.message}`);
     demoState.errors.push({ act: 2, error: error.message });
@@ -319,9 +301,7 @@ async function act4ReceiptVerification() {
         created: timestamp,
         verificationMethod: `${CONFIG.SETTLEMENT_AGENT_DID}#key-1`,
         proofPurpose: 'assertionMethod',
-        proofValue: 'z' + Array(86).fill(0).map(() => 
-          '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'[Math.floor(Math.random() * 58)]
-        ).join('')
+        proofValue: 'z' // Placeholder - real signature requires Ed25519 keypair integration
       }
     };
     
