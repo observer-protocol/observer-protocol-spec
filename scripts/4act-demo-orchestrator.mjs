@@ -298,6 +298,7 @@ async function act4ReceiptVerification() {
       issuanceDate: timestamp,
       credentialSubject: {
         id: CONFIG.MAIN_AGENT_DID,
+        agentId: CONFIG.MAIN_AGENT_ID,
         type: 'TronTransactionReceipt',
         tronTxHash: demoState.transactionHash,
         network: CONFIG.TRON_NETWORK,

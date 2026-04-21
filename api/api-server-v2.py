@@ -5894,7 +5894,7 @@ async def submit_tron_receipt(body: TRONReceiptSubmitRequest):
             vc_id,
             vc.get('issuer', {}).get('id', ''),
             credential_subject.get('id', ''),
-            credential_subject.get('agentId'),
+            credential_subject.get('agentId') or (credential_subject.get('id', '').split('/')[-1] if '/agents/' in credential_subject.get('id', '') else None),
             credential_subject.get('rail', 'tron'),
             credential_subject.get('asset', ''),
             str(credential_subject.get('amount', '')),
@@ -5906,9 +5906,9 @@ async def submit_tron_receipt(body: TRONReceiptSubmitRequest):
             credential_subject.get('timestamp', datetime.now(timezone.utc).isoformat()),
             credential_subject.get('confirmations', 0),
             credential_subject.get('orgAffiliation'),
-            rail_result.get('valid', False),
+            rail_result.get("verified", False),
             rail_result.get('tronGridVerified', False),
-            rail_result.get('signatureVerified', False),
+            rail_result.get("signatureValid", False),
             rail_result.get('error'),
             vc.get('issuanceDate', datetime.now(timezone.utc).isoformat()),
             vc.get('expirationDate', (datetime.now(timezone.utc) + timedelta(days=90)).isoformat()),
@@ -5924,7 +5924,7 @@ async def submit_tron_receipt(body: TRONReceiptSubmitRequest):
                 success=True,
                 receipt_id=str(row[0]),
                 vc_id=vc_id,
-                verified=rail_result.get('valid', False),
+                verified=rail_result.get("verified", False),
                 error=None
             )
         else:
