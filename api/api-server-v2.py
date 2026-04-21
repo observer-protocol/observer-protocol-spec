@@ -6248,3 +6248,328 @@ async def transaction_details(tx_hash: str):
         cursor.close()
         conn.close()
 
+
+# ============================================================
+# SPEC 3.1: THIRD-PARTY ATTESTATION ENDPOINTS
+# ============================================================
+
+class VerifyCredentialRequest(BaseModel):
+    """Request body for credential verification."""
+    credential: Dict
+    
+    class Config:
+        extra = "forbid"
+
+
+class CacheAttestationRequest(BaseModel):
+    """Request body for caching an attestation."""
+    credential: Dict
+    credential_url: Optional[str] = None
+    
+    class Config:
+        extra = "forbid"
+
+
+@app.post("/verify")
+async def verify_credential_endpoint(request: VerifyCredentialRequest):
+    """
+    Verify a third-party attestation credential.
+    
+    Implements Spec 3.1 verification flow:
+    - Resolves issuer DID
+    - Validates credential against JSON Schema
+    - Verifies Ed25519Signature2020 signature
+    - Checks validity period (validFrom/validUntil)
+    
+    Returns structured verification result with individual check status.
+    """
+    from vc_verification import verify_credential as vc_verify
+    
+    credential = request.credential
+    
+    # Basic structure validation
+    if not isinstance(credential, dict):
+        raise HTTPException(status_code=400, detail="Credential must be a JSON object")
+    
+    if not credential.get("proof"):
+        raise HTTPException(status_code=400, detail="Credential missing proof field")
+    
+    try:
+        result = vc_verify(credential, use_cache=True)
+        
+        # Return 200 even if verification fails - client checks 'verified' field
+        return result
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Verification failed: {str(e)}")
+
+
+@app.post("/api/v1/attestations/cache")
+async def cache_attestation(request: CacheAttestationRequest):
+    """
+    Cache a verified third-party attestation.
+    
+    1. Verifies the credential
+    2. If valid, stores in partner_attestations table
+    3. Returns the cached record ID
+    """
+    from vc_verification import verify_credential as vc_verify
+    
+    credential = request.credential
+    credential_url = request.credential_url
+    
+    # First, verify the credential
+    verification_result = vc_verify(credential, use_cache=True)
+    
+    if not verification_result["verified"]:
+        raise HTTPException(
+            status_code=400, 
+            detail={
+                "message": "Credential verification failed",
+                "checks": verification_result["checks"],
+                "error": verification_result.get("error")
+            }
+        )
+    
+    # Extract fields for caching
+    credential_id = credential.get("id")
+    credential_types = credential.get("type", [])
+    credential_type = credential_types[1] if len(credential_types) >= 2 else credential_types[0] if credential_types else "Unknown"
+    
+    issuer_did = verification_result["issuer_did"]
+    subject_did = verification_result["subject_did"]
+    
+    valid_from = credential.get("validFrom")
+    valid_until = credential.get("validUntil")
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            INSERT INTO partner_attestations (
+                credential_id,
+                credential_type,
+                issuer_did,
+                subject_did,
+                credential_jsonld,
+                credential_url,
+                valid_from,
+                valid_until,
+                cached_at,
+                last_verified_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+            ON CONFLICT (credential_id) DO UPDATE SET
+                credential_jsonld = EXCLUDED.credential_jsonld,
+                credential_url = EXCLUDED.credential_url,
+                valid_from = EXCLUDED.valid_from,
+                valid_until = EXCLUDED.valid_until,
+                cached_at = NOW(),
+                last_verified_at = NOW()
+            RETURNING id
+        """, (
+            credential_id,
+            credential_type,
+            issuer_did,
+            subject_did,
+            json.dumps(credential),
+            credential_url,
+            valid_from,
+            valid_until
+        ))
+        
+        record_id = cursor.fetchone()[0]
+        conn.commit()
+        
+        return {
+            "success": True,
+            "record_id": record_id,
+            "credential_id": credential_id,
+            "credential_type": credential_type,
+            "issuer_did": issuer_did,
+            "subject_did": subject_did,
+            "cached_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to cache attestation: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.get("/api/v1/attestations/{subject_did:path}")
+async def get_attestations(
+    subject_did: str,
+    credential_type: Optional[str] = None,
+    issuer_did: Optional[str] = None,
+    valid_only: bool = True
+):
+    """
+    Get cached attestations for a subject DID.
+    
+    Returns cached credentials filtered by validity (valid_until > NOW()).
+    Ordered by cached_at DESC (most recent first).
+    
+    Args:
+        subject_did: The subject's DID (URL-encoded path parameter)
+        credential_type: Optional filter by credential type
+        issuer_did: Optional filter by issuer DID
+        valid_only: If True (default), only returns non-expired credentials
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    
+    try:
+        query = """
+            SELECT 
+                id,
+                credential_id,
+                credential_type,
+                issuer_did,
+                subject_did,
+                credential_jsonld,
+                credential_url,
+                valid_from,
+                valid_until,
+                cached_at,
+                last_verified_at
+            FROM partner_attestations
+            WHERE subject_did = %s
+        """
+        params = [subject_did]
+        
+        if valid_only:
+            query += " AND valid_until > NOW()"
+        
+        if credential_type:
+            query += " AND credential_type = %s"
+            params.append(credential_type)
+        
+        if issuer_did:
+            query += " AND issuer_did = %s"
+            params.append(issuer_did)
+        
+        query += " ORDER BY cached_at DESC"
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        
+        attestations = []
+        for row in rows:
+            attestation = {
+                "id": row['id'],
+                "credential_id": row['credential_id'],
+                "credential_type": row['credential_type'],
+                "issuer_did": row['issuer_did'],
+                "subject_did": row['subject_did'],
+                "credential_url": row['credential_url'],
+                "valid_from": row['valid_from'].isoformat() if row['valid_from'] else None,
+                "valid_until": row['valid_until'].isoformat() if row['valid_until'] else None,
+                "cached_at": row['cached_at'].isoformat() if row['cached_at'] else None,
+                "last_verified_at": row['last_verified_at'].isoformat() if row['last_verified_at'] else None
+            }
+            
+            # Optionally include the full credential JSON
+            if row['credential_jsonld']:
+                try:
+                    if isinstance(row['credential_jsonld'], str):
+                        attestation['credential'] = json.loads(row['credential_jsonld'])
+                    else:
+                        attestation['credential'] = row['credential_jsonld']
+                except:
+                    pass
+            
+            attestations.append(attestation)
+        
+        return {
+            "subject_did": subject_did,
+            "count": len(attestations),
+            "valid_only": valid_only,
+            "attestations": attestations
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve attestations: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.get("/api/v1/attestations/cache/{record_id}")
+async def get_cached_attestation(record_id: int):
+    """
+    Get a specific cached attestation by its record ID.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    
+    try:
+        cursor.execute("""
+            SELECT 
+                id,
+                credential_id,
+                credential_type,
+                issuer_did,
+                subject_did,
+                credential_jsonld,
+                credential_url,
+                valid_from,
+                valid_until,
+                cached_at,
+                last_verified_at
+            FROM partner_attestations
+            WHERE id = %s
+        """, (record_id,))
+        
+        row = cursor.fetchone()
+        
+        if not row:
+            raise HTTPException(status_code=404, detail="Attestation record not found")
+        
+        attestation = {
+            "id": row['id'],
+            "credential_id": row['credential_id'],
+            "credential_type": row['credential_type'],
+            "issuer_did": row['issuer_did'],
+            "subject_did": row['subject_did'],
+            "credential_url": row['credential_url'],
+            "valid_from": row['valid_from'].isoformat() if row['valid_from'] else None,
+            "valid_until": row['valid_until'].isoformat() if row['valid_until'] else None,
+            "cached_at": row['cached_at'].isoformat() if row['cached_at'] else None,
+            "last_verified_at": row['last_verified_at'].isoformat() if row['last_verified_at'] else None
+        }
+        
+        if row['credential_jsonld']:
+            try:
+                if isinstance(row['credential_jsonld'], str):
+                    attestation['credential'] = json.loads(row['credential_jsonld'])
+                else:
+                    attestation['credential'] = row['credential_jsonld']
+            except:
+                pass
+        
+        # Check if still valid
+        now = datetime.now(timezone.utc)
+        valid_until = row['valid_until']
+        if isinstance(valid_until, str):
+            valid_until = datetime.fromisoformat(valid_until.replace('Z', '+00:00'))
+        
+        attestation['is_valid'] = valid_until > now if valid_until else False
+        
+        return attestation
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve attestation: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# ============================================================
+# END SPEC 3.1 ENDPOINTS
+# ============================================================
+

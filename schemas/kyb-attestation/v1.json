@@ -1,0 +1,163 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://observerprotocol.org/schemas/kyb-attestation/v1.json",
+  "title": "KYB Attestation Credential Schema",
+  "description": "JSON Schema for Know Your Business (KYB) attestation Verifiable Credentials",
+  "type": "object",
+  "required": [
+    "@context",
+    "id",
+    "type",
+    "issuer",
+    "validFrom",
+    "validUntil",
+    "credentialSubject",
+    "credentialSchema",
+    "proof"
+  ],
+  "properties": {
+    "@context": {
+      "type": "array",
+      "description": "JSON-LD context array including W3C VC v2 and attestation context",
+      "minItems": 2,
+      "items": {
+        "type": "string"
+      },
+      "contains": {
+        "enum": [
+          "https://www.w3.org/ns/credentials/v2",
+          "https://observerprotocol.org/contexts/attestation/v1"
+        ]
+      }
+    },
+    "id": {
+      "type": "string",
+      "format": "uri",
+      "description": "HTTPS URL where the credential is hosted",
+      "pattern": "^https://"
+    },
+    "type": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "string"
+      },
+      "contains": {
+        "const": "VerifiableCredential"
+      },
+      "description": "Must include VerifiableCredential and KYBAttestationCredential"
+    },
+    "issuer": {
+      "type": "string",
+      "description": "Issuer's DID string",
+      "pattern": "^did:[a-z]+:.+"
+    },
+    "validFrom": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when credential becomes valid"
+    },
+    "validUntil": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when credential expires"
+    },
+    "credentialSubject": {
+      "type": "object",
+      "required": [
+        "id",
+        "legalName",
+        "jurisdiction",
+        "registrationNumber",
+        "kybLevel",
+        "verifiedAt"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Subject's DID",
+          "pattern": "^did:[a-z]+:.+"
+        },
+        "legalName": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Legal name of the business entity"
+        },
+        "jurisdiction": {
+          "type": "string",
+          "description": "Jurisdiction code (e.g., 'US-DE', 'GB', 'CA-ON')",
+          "pattern": "^[A-Z]{2}(-[A-Z]{2})?$"
+        },
+        "registrationNumber": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Business registration number in the jurisdiction"
+        },
+        "kybLevel": {
+          "type": "string",
+          "enum": ["basic", "standard", "enhanced"],
+          "description": "Level of KYB verification performed"
+        },
+        "verifiedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when KYB verification was completed"
+        }
+      },
+      "additionalProperties": false
+    },
+    "credentialSchema": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of the JSON Schema",
+          "pattern": "^https://observerprotocol.org/schemas/"
+        },
+        "type": {
+          "type": "string",
+          "const": "JsonSchema"
+        }
+      },
+      "additionalProperties": false
+    },
+    "proof": {
+      "type": "object",
+      "required": [
+        "type",
+        "created",
+        "verificationMethod",
+        "proofPurpose",
+        "proofValue"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "Ed25519Signature2020"
+        },
+        "created": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "verificationMethod": {
+          "type": "string",
+          "description": "DID URL of the signing key",
+          "pattern": "^did:[a-z]+:.+#.+"
+        },
+        "proofPurpose": {
+          "type": "string",
+          "const": "assertionMethod"
+        },
+        "proofValue": {
+          "type": "string",
+          "description": "Base58btc-encoded Ed25519 signature",
+          "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

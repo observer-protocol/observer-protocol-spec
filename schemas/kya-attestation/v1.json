@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://observerprotocol.org/schemas/kya-attestation/v1.json",
+  "title": "KYA Attestation Credential Schema",
+  "description": "JSON Schema for Know Your Agent (KYA) attestation Verifiable Credentials",
+  "type": "object",
+  "required": [
+    "@context",
+    "id",
+    "type",
+    "issuer",
+    "validFrom",
+    "validUntil",
+    "credentialSubject",
+    "credentialSchema",
+    "proof"
+  ],
+  "properties": {
+    "@context": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "type": "string" },
+      "contains": { "enum": ["https://www.w3.org/ns/credentials/v2"] }
+    },
+    "id": { "type": "string", "format": "uri", "pattern": "^https://" },
+    "type": {
+      "type": "array",
+      "minItems": 2,
+      "contains": { "const": "VerifiableCredential" }
+    },
+    "issuer": { "type": "string", "pattern": "^did:[a-z]+:.+" },
+    "validFrom": { "type": "string", "format": "date-time" },
+    "validUntil": { "type": "string", "format": "date-time" },
+    "credentialSubject": {
+      "type": "object",
+      "required": ["id", "agentType", "verificationLevel", "verifiedAt"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^did:[a-z]+:.+" },
+        "agentType": { "type": "string", "enum": ["ai", "bot", "human", "hybrid"] },
+        "verificationLevel": { "type": "string", "enum": ["basic", "verified", "enterprise"] },
+        "verifiedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "credentialSchema": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^https://observerprotocol.org/schemas/" },
+        "type": { "const": "JsonSchema" }
+      }
+    },
+    "proof": {
+      "type": "object",
+      "required": ["type", "created", "verificationMethod", "proofPurpose", "proofValue"],
+      "properties": {
+        "type": { "const": "Ed25519Signature2020" },
+        "created": { "type": "string", "format": "date-time" },
+        "verificationMethod": { "type": "string", "pattern": "^did:[a-z]+:.+#.+" },
+        "proofPurpose": { "const": "assertionMethod" },
+        "proofValue": { "type": "string", "pattern": "^[1-9A-HJ-NP-Za-km-z]+$" }
+      }
+    }
+  }
+}
