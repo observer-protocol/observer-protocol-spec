@@ -1,0 +1,184 @@
+{
+  "_comment": "W3C Verifiable Credential — TRON Transaction Receipt v1.0",
+  "_description": "This is a complete example of a tron_receipt_v1 Verifiable Credential used in the Observer Protocol 4-Act TRON Demo",
+  "_documentation": "https://observerprotocol.org/docs/tron-receipt-vc",
+  
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://observerprotocol.org/context/tron-receipt/v1",
+    "https://w3id.org/security/suites/ed25519-2020/v1"
+  ],
+  
+  "id": "urn:uuid:tron-receipt-demo-2026-04-20-001",
+  "_id_field": "Unique identifier for this VC (UUID format)",
+  
+  "type": [
+    "VerifiableCredential",
+    "TronTransactionReceipt"
+  ],
+  "_type_field": "W3C VC type plus Observer Protocol specific type",
+  
+  "issuer": {
+    "id": "did:web:observerprotocol.org:agents:d13cdfceaa8f895afe56dc902179d279",
+    "_issuer_id": "DID of the agent issuing this receipt (the sender)",
+    "name": "Alice Trading Agent",
+    "orgAffiliation": "Observer Protocol Demo"
+  },
+  "_issuer_field": "The entity making the attestation (payment sender)",
+  
+  "issuanceDate": "2026-04-20T14:30:00Z",
+  "_issuanceDate_field": "ISO 8601 timestamp when VC was created",
+  
+  "expirationDate": "2026-04-27T14:30:00Z",
+  "_expirationDate_field": "Receipts expire after 7 days (configurable)",
+  
+  "credentialSubject": {
+    "id": "did:web:observerprotocol.org:agents:9539cf2f0b3c3c6e2ee882a479aec6b9",
+    "_subject_id": "DID of the subject (payment recipient)",
+    
+    "agentId": "9539cf2f0b3c3c6e2ee882a479aec6b9",
+    "_agentId_field": "Raw agent identifier (32 hex chars)",
+    
+    "rail": "tron:trc20",
+    "_rail_field": "Payment rail type: tron, tron:trc20, or tron:native",
+    "_rail_options": {
+      "tron": "Generic TRON rail",
+      "tron:trc20": "TRC-20 token transfer (USDT, USDC, etc.)",
+      "tron:native": "Native TRX transfer"
+    },
+    
+    "asset": "USDT",
+    "_asset_field": "Asset identifier (USDT, USDC, TRX, etc.)",
+    
+    "amount": "1000000",
+    "_amount_field": "Amount in smallest unit (6 decimals for USDT = 1.00 USDT)",
+    "_amount_calculation": "1000000 / 10^6 = 1.00 USDT",
+    
+    "transactionHash": "eb52108c9785a83d5ff381d6d5086dec4745d80dbaa1435b816c0f358754a006",
+    "_transactionHash_field": "64-character hex TRON transaction hash",
+    "_transactionHash_verification": "Verify on https://tronscan.org/#/transaction/{hash}",
+    
+    "timestamp": "2026-04-20T14:28:45Z",
+    "_timestamp_field": "ISO 8601 timestamp of blockchain transaction",
+    
+    "senderAddress": "TRh7rZZehnWXZ2X9eiwsWGGMWE8CdGgSP4",
+    "_senderAddress_field": "Base58Check TRON address of sender (T-prefix)",
+    "_senderAddress_validation": "Must start with T, 34 characters",
+    
+    "recipientAddress": "TW6usPjgS1p3SNqqad6FgSCu1fEeTD4My3",
+    "_recipientAddress_field": "Base58Check TRON address of recipient (T-prefix)",
+    
+    "tokenContract": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+    "_tokenContract_field": "TRC-20 contract address (for tron:trc20 rail)",
+    "_tokenContract_common": {
+      "USDT": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+      "USDC": "TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8",
+      "TUSD": "TUpMhErZL2fhh4sVNULAbNKLokS4GjC1F4",
+      "USDD": "TPYmHEhy5n8TCEfYGqW2rPxsghSfzghPDn"
+    },
+    
+    "network": "mainnet",
+    "_network_field": "TRON network identifier",
+    "_network_options": {
+      "mainnet": "Production TRON network",
+      "shasta": "Testnet for development",
+      "nile": "Staging testnet"
+    },
+    
+    "confirmations": 19,
+    "_confirmations_field": "Number of block confirmations at verification time",
+    "_confirmations_recommended": {
+      "mainnet": 19,
+      "shasta": 1,
+      "nile": 3
+    },
+    
+    "orgAffiliation": "Observer Protocol Demo",
+    "_orgAffiliation_field": "Optional: Organization name for org-affiliated transactions"
+  },
+  "_credentialSubject_field": "The claims being made about the transaction",
+  
+  "proof": {
+    "type": "Ed25519Signature2020",
+    "_proof_type": "Cryptographic signature suite (Ed25519)",
+    "_proof_type_alternatives": [
+      "Ed25519Signature2020 (current)",
+      "Ed25519Signature2018 (legacy support)"
+    ],
+    
+    "created": "2026-04-20T14:30:01Z",
+    "_proof_created": "ISO 8601 timestamp of signature creation",
+    
+    "verificationMethod": "did:web:observerprotocol.org:agents:d13cdfceaa8f895afe56dc902179d279#key-1",
+    "_verificationMethod_field": "DID URL of the signing key",
+    "_verificationMethod_format": "did:web:domain:path#key-id",
+    
+    "proofPurpose": "assertionMethod",
+    "_proofPurpose_field": "Why this signature exists",
+    "_proofPurpose_options": {
+      "assertionMethod": "Making a claim/assertion (standard for VCs)",
+      "authentication": "Proving identity",
+      "keyAgreement": "Encryption key establishment"
+    },
+    
+    "proofValue": "z5LWbF9XqXfZ3WxYg1QoF8nT7mK2P4sJh6R8vBtDqEwNcMkLpZxYtVbQrStUvWxYz123456789AbCdEfGhIjKlMnOpQrStUvWxYz",
+    "_proofValue_field": "Base58-encoded Ed25519 signature",
+    "_proofValue_encoding": "Multibase base58btc (z-prefixed)",
+    "_proofValue_verification": "Signature covers entire VC document (without proof field)"
+  },
+  "_proof_field": "Cryptographic proof binding the issuer to the claims",
+  
+  "_verificationInstructions": {
+    "step1": "Remove proof field from VC document",
+    "step2": "Canonicalize remaining JSON (sorted keys, no whitespace)",
+    "step3": "Hash canonical JSON with SHA-256",
+    "step4": "Verify Ed25519 signature against issuer's public key",
+    "step5": "Verify issuer DID resolves to valid DID Document",
+    "step6": "Confirm verificationMethod key exists in DID Document"
+  },
+  
+  "_databaseStorage": {
+    "table": "tron_receipts",
+    "columns": {
+      "receipt_id": "UUID primary key",
+      "vc_id": "VC id field (unique)",
+      "issuer_did": "Issuer DID string",
+      "subject_did": "Subject DID string",
+      "subject_agent_id": "Raw agent ID",
+      "rail": "Rail type (tron/tron:trc20)",
+      "asset": "Asset code",
+      "amount": "Amount string",
+      "tron_tx_hash": "64-char hex transaction hash",
+      "sender_address": "TRON sender address",
+      "recipient_address": "TRON recipient address",
+      "token_contract": "TRC-20 contract (if applicable)",
+      "network": "mainnet/shasta/nile",
+      "tx_timestamp": "Transaction timestamp",
+      "confirmations": "Block confirmations",
+      "org_affiliation": "Organization name",
+      "verified": "Boolean verification status",
+      "tron_grid_verified": "TronGrid API verification",
+      "signature_verified": "Ed25519 signature verification",
+      "verification_error": "Error message if failed",
+      "issued_at": "VC issuance timestamp",
+      "expires_at": "VC expiration timestamp",
+      "vc_document": "Full VC JSON",
+      "receipt_hash": "SHA-256 hash of VC"
+    }
+  },
+  
+  "_apiEndpoints": {
+    "submitReceipt": "POST /api/v1/tron/receipts/submit",
+    "getReceipts": "GET /api/v1/tron/receipts/{agent_id}",
+    "getTrustScore": "GET /api/v1/trust/tron/score/{agent_id}",
+    "getLeaderboard": "GET /api/v1/trust/tron/leaderboard"
+  },
+  
+  "_trustScoreImpact": {
+    "volume_score": "Based on total verified transaction volume",
+    "counterparty_score": "Based on number of unique counterparties",
+    "recency_score": "Based on time since last verified transaction",
+    "org_affiliated_bonus": "Additional score for org-affiliated transactions",
+    "receipt_expiry": "Scores affected when receipts expire (7 days)"
+  }
+}
