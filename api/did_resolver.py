@@ -62,8 +62,15 @@ def resolve_did_web(did: str) -> dict:
         url = f"https://{domain}/.well-known/did.json"
 
     local_base = os.environ.get("DID_LOCAL_BASE_URL")
+    local_resolver_enabled = os.environ.get("DID_LOCAL_RESOLVER_ENABLED", "false").lower() == "true"
     op_domain = os.environ.get("OP_BASE_DOMAIN", "observerprotocol.org")
-    if local_base and domain == op_domain:
+    if local_base and local_resolver_enabled and domain == op_domain:
+        # Dev convenience: if a local resolver is running and DID_LOCAL_RESOLVER_ENABLED
+        # is explicitly set to "true", route resolution for the OP domain through it
+        # instead of the real public URL. This allows testing with DIDs that aren't yet
+        # published. In production, DID_LOCAL_RESOLVER_ENABLED must remain unset or
+        # "false" - setting it true without a local resolver running breaks all
+        # resolution of OP-domain issuer DIDs.
         if path_segments:
             url = f"{local_base}/{'/'.join(path_segments)}/did.json"
         else:
