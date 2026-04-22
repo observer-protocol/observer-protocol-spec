@@ -29,7 +29,6 @@ except ImportError:
     BCRYPT_AVAILABLE = False
     bcrypt = None
 
-
 def get_db_connection():
     """Get PostgreSQL database connection using DATABASE_URL env var."""
     database_url = os.environ.get("DATABASE_URL")
@@ -38,7 +37,6 @@ def get_db_connection():
             "DATABASE_URL environment variable is not set."
         )
     return psycopg2.connect(database_url)
-
 
 def validate_enterprise_session(request: Request):
     """
@@ -87,7 +85,6 @@ def validate_enterprise_session(request: Request):
     finally:
         cursor.close()
         conn.close()
-
 
 # Import VAC and Partner Registry modules
 from vac_generator import VACGenerator, VAC_MAX_AGE_DAYS, VAC_REFRESH_HOURS
@@ -168,7 +165,6 @@ def validate_chains(chains: Optional[List[str]]) -> tuple[bool, str]:
     
     return True, ""
 
-
 class AgentUpdateRequest(BaseModel):
     """Request body for updating agent metadata."""
     agent_name: Optional[str] = None
@@ -179,7 +175,6 @@ class AgentUpdateRequest(BaseModel):
     class Config:
         extra = "forbid"  # Only allow specified fields
 
-
 class AdminLoginRequest(BaseModel):
     """Request body for platform admin login."""
     email: str
@@ -188,7 +183,6 @@ class AdminLoginRequest(BaseModel):
     class Config:
         extra = "forbid"
 
-
 # ------------------------------------------------------------------------------
 # Phase 2: Org-scoped agent registration with rails and wallet addresses
 # ------------------------------------------------------------------------------
@@ -196,14 +190,12 @@ class AdminLoginRequest(BaseModel):
 VALID_RAILS = {"tron", "trc20", "lightning", "solana", "x402", "l402"}
 TRON_RAILS = {"tron", "trc20"}
 
-
 class OrgAgentRegistrationRequest(BaseModel):
     """Request body for org-scoped agent registration with payment rails."""
     name: str
     public_key: str
     rails: List[str] = []
     wallet_addresses: Dict[str, str] = {}
-
 
 class OrgAgentRegistrationResponse(BaseModel):
     """Response for org-scoped agent registration."""
@@ -214,7 +206,6 @@ class OrgAgentRegistrationResponse(BaseModel):
     wallet_addresses: Dict[str, str]
     org_id: str
     registered_at: str
-
 
 # Fleet and detail endpoint response models
 class AgentSummary(BaseModel):
@@ -233,7 +224,6 @@ class AgentSummary(BaseModel):
     verified_at: Optional[str] = None
     created_at: str
 
-
 class FleetResponse(BaseModel):
     agents: List[AgentSummary]
     total: int
@@ -241,7 +231,6 @@ class FleetResponse(BaseModel):
     offset: int
     org_id: int
     org_name: str
-
 
 class AgentDetailResponse(BaseModel):
     """Full agent record for the detail page. Includes rendered DID document."""
@@ -266,7 +255,6 @@ class AgentDetailResponse(BaseModel):
     framework: Optional[str] = None
     legal_entity_id: Optional[str] = None
 
-
 def _is_valid_tron_address(addr: str) -> bool:
     """Validate TRON mainnet address (base58, 34 chars, starts with 'T')."""
     if not addr or len(addr) != 34 or not addr.startswith("T"):
@@ -276,7 +264,6 @@ def _is_valid_tron_address(addr: str) -> bool:
         return len(decoded) == 21 and decoded[0] == 0x41
     except Exception:
         return False
-
 
 def _org_info_for_org_id(conn, org_id: int) -> Optional[tuple]:
     """Look up org info from organizations table. Returns (int_id, slug) or None."""
@@ -289,7 +276,6 @@ def _org_info_for_org_id(conn, org_id: int) -> Optional[tuple]:
         slug = re.sub(r"[^a-z0-9]+", "-", org_name.lower()).strip("-")
         return (int_id, slug)
     return None
-
 
 def _generate_agent_id(public_key: str, conn) -> str:
     """Generate agent_id using sha256 of public_key (first 32 chars)."""
@@ -310,11 +296,9 @@ def _generate_agent_id(public_key: str, conn) -> str:
     
     return agent_id
 
-
 def _json_dumps(obj):
     """JSON encode helper."""
     return json.dumps(obj)
-
 
 def _build_transaction_message(agent_id: str, transaction_reference: str, protocol: str, timestamp: str) -> bytes:
     """
@@ -332,7 +316,6 @@ def _build_transaction_message(agent_id: str, transaction_reference: str, protoc
         bytes: The canonical message to be signed
     """
     return f"{agent_id}:{transaction_reference}:{protocol}:{timestamp}".encode()
-
 
 app = FastAPI(
     title="Agentic Terminal API",
@@ -359,7 +342,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "PUT", "OPTIONS"],
     allow_headers=["*"],
 )
-
 
 @app.on_event("startup")
 def startup_event():
@@ -389,7 +371,6 @@ def startup_event():
             "HMAC-SHA256 payload signing."
         )
 
-
 def _ensure_op_did_document(op_public_key: str) -> None:
     """Insert OP's DID Document into op_did_document if not already present."""
     doc = build_op_did_document(op_public_key)
@@ -414,7 +395,6 @@ def _ensure_op_did_document(op_public_key: str) -> None:
     finally:
         cursor.close()
         conn.close()
-
 
 @app.get("/api/v1/health")
 def health_check():
@@ -795,7 +775,6 @@ def register_agent(
         cursor.close()
         conn.close()
 
-
 @app.post("/observer/orgs/{org_id}/agents", response_model=OrgAgentRegistrationResponse)
 def register_agent_for_org(
     org_id: str,
@@ -914,7 +893,6 @@ def register_agent_for_org(
         cursor.close()
         conn.close()
 
-
 # -----------------------------------------------------------------------------
 # Fleet endpoint — list agents for an org (paginated)
 # -----------------------------------------------------------------------------
@@ -1010,7 +988,6 @@ def list_agents_for_org(
         cursor.close()
         conn.close()
 
-
 # -----------------------------------------------------------------------------
 # Individual agent detail endpoint — full record including rendered DID document
 # -----------------------------------------------------------------------------
@@ -1098,7 +1075,6 @@ def get_agent_detail_full(
     finally:
         cursor.close()
         conn.close()
-
 
 @app.patch("/observer/agent/{agent_id}")
 def update_agent(agent_id: str, update: AgentUpdateRequest):
@@ -1189,7 +1165,6 @@ def update_agent(agent_id: str, update: AgentUpdateRequest):
         cursor.close()
         conn.close()
 
-
 @app.post("/observer/challenge")
 def generate_challenge(agent_id: str):
     """Generate a cryptographic challenge for agent verification.
@@ -1256,7 +1231,6 @@ def generate_challenge(agent_id: str):
     finally:
         cursor.close()
         conn.close()
-
 
 @app.post("/observer/verify-agent")
 def verify_agent(agent_id: str, signed_challenge: str, challenge_id: Optional[str] = None):
@@ -1632,7 +1606,6 @@ def get_feed(request: Request, limit: int = 50):
         cursor.close()
         conn.close()
 
-
 def _generate_badge_svg(
     agent_name: str,
     agent_seq: int,
@@ -1741,7 +1714,6 @@ def _generate_badge_svg(
 </svg>"""
     return svg
 
-
 def _generate_not_found_badge_svg() -> str:
     """Badge for unknown agent IDs."""
     return """<svg xmlns="http://www.w3.org/2000/svg" width="400" height="96" viewBox="0 0 400 96">
@@ -1750,7 +1722,6 @@ def _generate_not_found_badge_svg() -> str:
   <text x="200" y="44" font-family="monospace" font-size="13" fill="#6b6b80" text-anchor="middle">OBSERVER PROTOCOL</text>
   <text x="200" y="64" font-family="monospace" font-size="11" fill="#ff5252" text-anchor="middle">Agent not found</text>
 </svg>"""
-
 
 @app.get("/observer/badge/{agent_id}.svg",
          responses={200: {"content": {"image/svg+xml": {}}}})
@@ -1827,7 +1798,6 @@ def get_agent_badge(agent_id: str):
         cursor.close()
         conn.close()
 
-
 @app.get("/observer/agent/{public_key_hash}")
 def lookup_agent_by_hash(public_key_hash: str):
     """Lookup an agent by its public key hash.
@@ -1875,7 +1845,6 @@ def lookup_agent_by_hash(public_key_hash: str):
     finally:
         cursor.close()
         conn.close()
-
 
 # ============================================================
 # AGENT LIST ENDPOINT (for registry page) - MUST BE BEFORE /{agent_id}
@@ -1949,7 +1918,6 @@ class PartnerRegistrationRequest(BaseModel):
     webhook_url: Optional[str] = None
     metadata: Optional[dict] = None
 
-
 class AttestationRequest(BaseModel):
     """Request body for issuing an attestation."""
     agent_id: str
@@ -1958,13 +1926,11 @@ class AttestationRequest(BaseModel):
     expires_in_days: Optional[int] = None
     attestation_signature: Optional[str] = None
 
-
 class CounterpartyMetadataRequest(BaseModel):
     """Request body for adding counterparty metadata."""
     counterparty_id: str
     metadata: dict
     ipfs_cid: Optional[str] = None
-
 
 @app.get("/vac/{agent_id}")
 def get_vac_credential(agent_id: str, include_extensions: bool = True):
@@ -2054,7 +2020,6 @@ def get_vac_credential(agent_id: str, include_extensions: bool = True):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"VAC retrieval failed: {str(e)}")
-
 
 @app.get("/vac/{agent_id}/full")
 def get_vac_credential_full(request: Request, agent_id: str, include_extensions: bool = True):
@@ -2209,7 +2174,6 @@ def get_vac_credential_full(request: Request, agent_id: str, include_extensions:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"VAC retrieval failed: {str(e)}")
 
-
 @app.post("/vac/{agent_id}/refresh")
 async def refresh_vac_credential(agent_id: str, force: bool = False):
     """
@@ -2273,11 +2237,9 @@ async def refresh_vac_credential(agent_id: str, force: bool = False):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"VAC refresh failed: {str(e)}")
 
-
 class VPPresentRequest(BaseModel):
     """Request body for agent-signed VP submission."""
     holder_private_key_hex: str
-
 
 @app.put("/agents/{agent_id}/present")
 @app.post("/vac/{agent_id}/present")
@@ -2330,7 +2292,6 @@ async def present_vp(agent_id: str, request: VPPresentRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"VP presentation failed: {str(e)}")
-
 
 @app.get("/vac/{agent_id}/history")
 def get_vac_history(agent_id: str, limit: int = 10):
@@ -2389,7 +2350,6 @@ def get_vac_history(agent_id: str, limit: int = 10):
     finally:
         cursor.close()
         conn.close()
-
 
 @app.get("/vac/{agent_id}/history/full")
 def get_vac_history_full(request: Request, agent_id: str, limit: int = 10):
@@ -2462,7 +2422,6 @@ def get_vac_history_full(request: Request, agent_id: str, limit: int = 10):
         cursor.close()
         conn.close()
 
-
 # ============================================================
 # VP ENDPOINTS (Layer 3 — DB as cache, agent carries authoritative VP)
 # ============================================================
@@ -2474,19 +2433,16 @@ class VPVerifyRequest(BaseModel):
     # only verifies embedded VCs (VP proof verification is skipped).
     holder_public_key_hex: Optional[str] = None
 
-
 class VPSubmitRequest(BaseModel):
     """Request body for agent VP submission."""
     vp: dict
     agent_id: str
-
 
 class VPReconstructRequest(BaseModel):
     """Request body for VP reconstruction."""
     agent_id: str
     holder_private_key_hex: Optional[str] = None
     force_regenerate: bool = False
-
 
 @app.post("/vp/verify")
 def verify_vp_endpoint(request: VPVerifyRequest):
@@ -2559,7 +2515,6 @@ def verify_vp_endpoint(request: VPVerifyRequest):
 
     return result
 
-
 @app.post("/vp/submit")
 async def submit_vp_endpoint(request: VPSubmitRequest):
     """
@@ -2629,7 +2584,6 @@ async def submit_vp_endpoint(request: VPSubmitRequest):
         response["cache_warning"] = store_error
     return response
 
-
 @app.post("/vp/reconstruct")
 def reconstruct_vp_endpoint(request: VPReconstructRequest):
     """
@@ -2672,7 +2626,6 @@ def reconstruct_vp_endpoint(request: VPReconstructRequest):
         "vp": vp,
     }
 
-
 # ============================================================
 # PARTNER REGISTRY ENDPOINTS
 # ============================================================
@@ -2703,7 +2656,6 @@ def register_partner(request: PartnerRegistrationRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Partner registration failed: {str(e)}")
 
-
 @app.get("/vac/partners")
 def list_partners(
     partner_type: Optional[str] = None,
@@ -2716,7 +2668,6 @@ def list_partners(
         return {"partners": partners, "count": len(partners)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Partner listing failed: {str(e)}")
-
 
 @app.get("/vac/partners/{partner_id}")
 def get_partner(partner_id: str):
@@ -2731,7 +2682,6 @@ def get_partner(partner_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Partner retrieval failed: {str(e)}")
-
 
 # ============================================================
 # ATTESTATION ENDPOINTS
@@ -2764,7 +2714,6 @@ def issue_attestation(partner_id: str, request: AttestationRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Attestation issuance failed: {str(e)}")
 
-
 @app.get("/vac/{agent_id}/attestations")
 def get_agent_attestations(
     agent_id: str,
@@ -2781,7 +2730,6 @@ def get_agent_attestations(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Attestation retrieval failed: {str(e)}")
-
 
 # ============================================================
 # COUNTERPARTY METADATA ENDPOINTS
@@ -2809,7 +2757,6 @@ def add_counterparty_metadata(
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Counterparty metadata addition failed: {str(e)}")
-
 
 @app.get("/vac/{credential_id}/counterparty")
 def get_counterparty_metadata(credential_id: str):
@@ -2849,7 +2796,6 @@ def get_counterparty_metadata(credential_id: str):
     finally:
         cursor.close()
         conn.close()
-
 
 # ============================================================
 # REVOCATION REGISTRY ENDPOINTS
@@ -2921,7 +2867,6 @@ def get_revocation_registry(
         cursor.close()
         conn.close()
 
-
 @app.post("/vac/{credential_id}/revoke")
 def revoke_credential(
     credential_id: str,
@@ -2962,7 +2907,6 @@ def revoke_credential(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Credential revocation failed: {str(e)}")
 
-
 # ============================================================
 # CORPO MIGRATION ENDPOINTS
 # ============================================================
@@ -2993,7 +2937,6 @@ def register_corpo_partner_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Corpo registration failed: {str(e)}")
-
 
 @app.post("/vac/corpo/{partner_id}/attest-entity")
 def corpo_attest_legal_entity(
@@ -3027,7 +2970,6 @@ def corpo_attest_legal_entity(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Legal entity attestation failed: {str(e)}")
-
 
 @app.get("/vac/{agent_id}/legal-entity")
 def get_legal_entity_attestation(agent_id: str):
@@ -3080,7 +3022,6 @@ def get_legal_entity_attestation(agent_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Legal entity retrieval failed: {str(e)}")
 
-
 # ============================================================
 # ORGANIZATION REGISTRY ENDPOINTS (Phase 1: Organizational Attestation)
 # ============================================================
@@ -3113,7 +3054,6 @@ def register_organization_endpoint(request: OrganizationRegistrationRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Organization registration failed: {str(e)}")
 
-
 @app.get("/observer/orgs/{org_id}")
 def get_organization_endpoint(org_id: str, include_keys: bool = Query(False)):
     """Get organization details by ID."""
@@ -3124,7 +3064,6 @@ def get_organization_endpoint(org_id: str, include_keys: bool = Query(False)):
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve organization: {str(e)}")
-
 
 @app.get("/observer/orgs/by-domain/{domain}")
 def get_organization_by_domain_endpoint(domain: str):
@@ -3139,7 +3078,6 @@ def get_organization_by_domain_endpoint(domain: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve organization: {str(e)}")
 
-
 @app.get("/observer/orgs/by-key/{key_hash}")
 def get_organization_by_key_hash_endpoint(key_hash: str):
     """Get organization by public key hash (master or revocation)."""
@@ -3150,7 +3088,6 @@ def get_organization_by_key_hash_endpoint(key_hash: str):
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve organization: {str(e)}")
-
 
 @app.get("/observer/orgs")
 def list_organizations_endpoint(
@@ -3173,7 +3110,6 @@ def list_organizations_endpoint(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list organizations: {str(e)}")
 
-
 @app.post("/observer/orgs/{org_id}/revoke")
 def revoke_organization_endpoint(org_id: str, request: OrganizationRevocationRequest):
     """Revoke an organization (soft delete)."""
@@ -3191,11 +3127,9 @@ def revoke_organization_endpoint(org_id: str, request: OrganizationRevocationReq
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Revocation failed: {str(e)}")
 
-
 # ============================================================
 # END ORGANIZATION REGISTRY ENDPOINTS
 # ============================================================
-
 
 # ============================================================
 # DID RESOLUTION ENDPOINTS (Layer 1)
@@ -3237,7 +3171,6 @@ def transform_did_to_url(did: str) -> str:
         url = f"https://{domain_and_path}/.well-known/did.json"
     
     return url
-
 
 @app.get("/.well-known/did.json", tags=["DID"])
 def get_op_well_known_did(fragment: Optional[str] = Query(None)):
@@ -3303,10 +3236,8 @@ def get_op_well_known_did(fragment: Optional[str] = Query(None)):
         cursor.close()
         conn.close()
 
-
 # Import DID document builder for Phase 2 org-scoped resolution
 from did_document import render_did_document_json
-
 
 @app.get("/agents/{org_slug}/{agent_id}/did.json", tags=["DID"])
 def get_org_scoped_agent_did_file(org_slug: str, agent_id: str):
@@ -3357,7 +3288,6 @@ def get_org_scoped_agent_did_file(org_slug: str, agent_id: str):
         cursor.close()
         conn.close()
 
-
 @app.get("/agents/{agent_id}/did.json", tags=["DID"])
 def get_agent_did_file(agent_id: str):
     """
@@ -3393,7 +3323,6 @@ def get_agent_did_file(agent_id: str):
     finally:
         cursor.close()
         conn.close()
-
 
 @app.get("/orgs/{org_id}/did.json", tags=["DID"])
 def get_org_did_file(org_id: str):
@@ -3431,13 +3360,11 @@ def get_org_did_file(org_id: str):
         cursor.close()
         conn.close()
 
-
 class DIDResolutionResponse(BaseModel):
     """W3C DID Resolution response format."""
     didDocument: Optional[Dict] = None
     didDocumentMetadata: Dict = {}
     didResolutionMetadata: Dict = {}
-
 
 @app.get("/resolve/{did:path}", tags=["DID"], response_model=DIDResolutionResponse)
 def resolve_did_endpoint(did: str):
@@ -3513,7 +3440,6 @@ def resolve_did_endpoint(did: str):
                 "errorMessage": str(e)
             }
         )
-
 
 def fetch_local_did_document(did: str, did_parts: list) -> tuple:
     """Fetch DID document from local database - path-based did:web DIDs."""
@@ -3643,7 +3569,6 @@ def fetch_local_did_document_legacy(did: str, did_parts: list) -> tuple:
         cursor.close()
         conn.close()
 
-
 def fetch_external_did_document(url: str) -> tuple:
     """Fetch DID document from external domain."""
     import requests
@@ -3665,7 +3590,6 @@ def fetch_external_did_document(url: str) -> tuple:
         raise HTTPException(status_code=504, detail="Timeout resolving external DID")
     except requests.RequestException as e:
         raise HTTPException(status_code=502, detail=f"Failed to fetch external DID: {str(e)}")
-
 
 def resolve_local_did(did: str, did_parts: list):
     """Resolve a DID hosted on observerprotocol.org from local database."""
@@ -3738,14 +3662,12 @@ def resolve_local_did(did: str, did_parts: list):
         cursor.close()
         conn.close()
 
-
 class KeyRotationRequest(BaseModel):
     """Request body for agent key rotation."""
     new_public_key: str
 
     class Config:
         extra = "forbid"
-
 
 @app.put("/agents/{agent_id}/keys", tags=["DID"])
 def rotate_agent_key(agent_id: str, request: KeyRotationRequest):
@@ -3814,11 +3736,9 @@ def rotate_agent_key(agent_id: str, request: KeyRotationRequest):
         cursor.close()
         conn.close()
 
-
 # ============================================================
 # END DID RESOLUTION ENDPOINTS
 # ============================================================
-
 
 # ============================================================
 # DELEGATION VC ENDPOINTS (Build 2 Deliverable 1)
@@ -3830,7 +3750,6 @@ class DelegationRequest(BaseModel):
     org_did: str
     requested_by: str
 
-
 class DelegationApprovalRequest(BaseModel):
     """Request body for approving delegation."""
     request_id: str
@@ -3839,7 +3758,6 @@ class DelegationApprovalRequest(BaseModel):
     permissions: List[str]
     expiry: str
 
-
 class DelegationVCRequest(BaseModel):
     """Request body for internal VC issuance."""
     agent_id: str
@@ -3847,7 +3765,6 @@ class DelegationVCRequest(BaseModel):
     spending_limits: Dict[str, str]
     permissions: List[str]
     expiry: str
-
 
 def _issue_delegation_vc(
     agent_id: str,
@@ -3891,7 +3808,6 @@ def _issue_delegation_vc(
     )
     
     return vc
-
 
 @app.post("/observer/request-delegation")
 def request_delegation(request: DelegationRequest):
@@ -3941,7 +3857,6 @@ def request_delegation(request: DelegationRequest):
     finally:
         cursor.close()
         conn.close()
-
 
 @app.post("/observer/approve-delegation")
 def approve_delegation(request: DelegationApprovalRequest):
@@ -4065,7 +3980,6 @@ def approve_delegation(request: DelegationApprovalRequest):
         cursor.close()
         conn.close()
 
-
 @app.get("/observer/delegation/{agent_id}")
 def get_delegation(request: Request, agent_id: str):
     """
@@ -4143,16 +4057,13 @@ def get_delegation(request: Request, agent_id: str):
         cursor.close()
         conn.close()
 
-
 # ============================================================
 # END DELEGATION VC ENDPOINTS
 # ============================================================
 
-
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
 
 # ── Alias routes for frontend compatibility ──────────────────────────────────
 
@@ -4197,7 +4108,6 @@ def get_transactions(request: Request, limit: int = 50, agent_id: str = None):
         cursor.close()
         conn.close()
 
-
 @app.get("/observer/stats")
 def get_observer_stats(agent_id: str = None):
     """Aggregated stats for the registry dashboard."""
@@ -4230,7 +4140,6 @@ def get_observer_stats(agent_id: str = None):
     finally:
         cursor.close()
         conn.close()
-
 
 @app.post("/api/v1/admin/auth/login")
 def admin_login(request: AdminLoginRequest):
@@ -4304,7 +4213,6 @@ def admin_login(request: AdminLoginRequest):
         cursor.close()
         conn.close()
 
-
 @app.get("/api/v1/admin/orgs")
 def list_admin_orgs(authorization: str = Header(None)):
     """List all organizations (platform admin only)."""
@@ -4356,7 +4264,6 @@ def list_admin_orgs(authorization: str = Header(None)):
     finally:
         cursor.close()
         conn.close()
-
 
 @app.post("/api/v1/admin/orgs")
 def create_admin_org(request: dict, authorization: str = Header(None)):
@@ -4421,7 +4328,6 @@ def create_admin_org(request: dict, authorization: str = Header(None)):
     finally:
         cursor.close()
         conn.close()
-
 
 @app.post("/api/v1/admin/orgs/{org_id}/invite")
 def invite_admin_to_org(org_id: str, request: dict, authorization: str = Header(None)):
@@ -4531,7 +4437,6 @@ async def validate_enterprise_token(request: Request):
         cursor.close()
         conn.close()
 
-
 # =============================================================================
 # SIWW (Sign-In With Wallet) Endpoints
 # =============================================================================
@@ -4540,12 +4445,10 @@ class SIWWChallengeRequest(BaseModel):
     wallet_address: str
     wallet_type: str  # 'metamask', 'alby', 'tronlink', 'phantom'
 
-
 class SIWWChallengeResponse(BaseModel):
     nonce: str
     challenge_message: str
     expires_at: str
-
 
 class SIWWVerifyRequest(BaseModel):
     wallet_address: str
@@ -4553,7 +4456,6 @@ class SIWWVerifyRequest(BaseModel):
     nonce: str
     signature: str
     magic_link_token: Optional[str] = None  # Present for onboarding, absent for re-auth
-
 
 class BindWalletRequest(BaseModel):
     invitation_token: str
@@ -4563,7 +4465,6 @@ class BindWalletRequest(BaseModel):
     message: str  # The challenge message that was signed
     chain_type: Optional[str] = None  # 'evm', 'tron' - for signature verification routing
 
-
 class BindWalletResponse(BaseModel):
     success: bool
     user_id: Optional[str] = None
@@ -4572,7 +4473,6 @@ class BindWalletResponse(BaseModel):
     role: Optional[str] = None
     email: Optional[str] = None
     message: Optional[str] = None
-
 
 class SIWWVerifyResponse(BaseModel):
     success: bool
@@ -4584,7 +4484,6 @@ class SIWWVerifyResponse(BaseModel):
     session_token: Optional[str] = None
     message: Optional[str] = None
 
-
 def _generate_challenge_message(nonce: str, wallet_address: str, wallet_type: str, origin: str = "app.agenticterminal.io") -> str:
     """Generate EIP-4361 style challenge message."""
     from datetime import datetime, timezone
@@ -4592,7 +4491,6 @@ def _generate_challenge_message(nonce: str, wallet_address: str, wallet_type: st
     # EIP-4361 requires domain in message to match the origin serving the page
     domain = origin.replace("https://", "").replace("http://", "").split(":")[0]
     return f"{domain} wants you to sign in with your {wallet_type} account:\n{wallet_address}\n\nNonce: {nonce}\nIssued At: {issued_at}"
-
 
 @app.post("/api/v1/auth/challenge", response_model=SIWWChallengeResponse)
 def siww_create_challenge(body: SIWWChallengeRequest, request: Request):
@@ -4634,7 +4532,6 @@ def siww_create_challenge(body: SIWWChallengeRequest, request: Request):
         cursor.close()
         conn.close()
 
-
 def _verify_eip4361_signature(wallet_address: str, challenge_message: str, signature: str) -> bool:
     """Verify EIP-4361 / Ethereum personal_sign signature using siwe library."""
     try:
@@ -4662,7 +4559,6 @@ def _verify_eip4361_signature(wallet_address: str, challenge_message: str, signa
         except Exception as fallback_ex:
             print(f"Fallback signature verification error: {fallback_ex}")
             return False
-
 
 @app.post("/api/v1/auth/verify", response_model=SIWWVerifyResponse)
 def siww_verify_signature(request: SIWWVerifyRequest):
@@ -4922,7 +4818,6 @@ def siww_verify_signature(request: SIWWVerifyRequest):
         cursor.close()
         conn.close()
 
-
 @app.post("/api/v1/enterprise/auth/bind-wallet")
 async def bind_wallet(request: Request):
     """
@@ -5030,7 +4925,6 @@ async def bind_wallet(request: Request):
         cursor.close()
         conn.close()
 
-
 @app.post("/api/v1/auth/logout")
 def logout(request: Request):
     """
@@ -5089,7 +4983,6 @@ def logout(request: Request):
     
     return response
 
-
 # =============================================================================
 # Chain-Aware Signature Verification
 # =============================================================================
@@ -5111,7 +5004,6 @@ def verify_signature(chain_type: str, address: str, message: str, signature: str
     else:
         raise ValueError(f"Unsupported chain_type: {chain_type}")
 
-
 def verify_evm_signature(address: str, message: str, signature: str) -> bool:
     """
     Verify EIP-191 personal_sign signature.
@@ -5129,7 +5021,6 @@ def verify_evm_signature(address: str, message: str, signature: str) -> bool:
     except Exception as ex:
         print(f"[EVM Signature Verify Error] {ex}")
         return False
-
 
 def verify_tron_signature(address: str, message: str, signature: str) -> bool:
     """
@@ -5159,14 +5050,12 @@ def verify_tron_signature(address: str, message: str, signature: str) -> bool:
         print(f"[TRON Signature Verify Error] {ex}")
         return True  # TEMP: Accept for testing
 
-
 def verify_solana_signature(address: str, message: str, signature: str) -> bool:
     """
     Verify Solana Ed25519 signature.
     STUB - NotImplementedError for now.
     """
     raise NotImplementedError("Solana signature verification not yet implemented")
-
 
 def verify_lnurl_auth(address: str, message: str, signature: str) -> bool:
     """
@@ -5175,14 +5064,12 @@ def verify_lnurl_auth(address: str, message: str, signature: str) -> bool:
     """
     raise NotImplementedError("Lightning/LNURL-auth verification not yet implemented")
 
-
 def verify_wdk_signature(address: str, message: str, signature: str) -> bool:
     """
     Verify Tether WDK signature.
     STUB - NotImplementedError for now.
     """
     raise NotImplementedError("Tether WDK verification not yet implemented")
-
 
 def generate_challenge_message(nonce: str, address: str, chain_type: str, origin: str = "app.agenticterminal.io") -> str:
     """
@@ -5204,8 +5091,6 @@ def generate_challenge_message(nonce: str, address: str, chain_type: str, origin
     
     return f"{domain} wants you to sign in with your {chain_label} account:\n{address}\n\nNonce: {nonce}\nIssued At: {issued_at}"
 
-
-
 # =============================================================================
 # Enterprise Auth Rebuild Endpoints
 # =============================================================================
@@ -5214,12 +5099,10 @@ class AuthNonceRequest(BaseModel):
     wallet_address: str
     chain_type: str  # 'evm', 'tron', 'solana', 'lightning', 'tether_wdk'
 
-
 class AuthNonceResponse(BaseModel):
     nonce: str
     message: str
     expires_at: str
-
 
 class AuthOnboardRequest(BaseModel):
     invitation_token: str
@@ -5227,7 +5110,6 @@ class AuthOnboardRequest(BaseModel):
     chain_type: str
     message: str
     signature: str
-
 
 class AuthOnboardResponse(BaseModel):
     success: bool
@@ -5240,13 +5122,11 @@ class AuthOnboardResponse(BaseModel):
     wallet: Optional[dict] = None
     message: Optional[str] = None
 
-
 class AuthLoginRequest(BaseModel):
     wallet_address: str
     chain_type: str
     message: str
     signature: str
-
 
 class AuthLoginResponse(BaseModel):
     success: bool
@@ -5255,16 +5135,12 @@ class AuthLoginResponse(BaseModel):
     wallet: Optional[dict] = None
     message: Optional[str] = None
 
-
 class AddWalletRequest(BaseModel):
     wallet_address: str
     chain_type: str
     message: str
     signature: str
     label: Optional[str] = None
-
-
-
 
 # =============================================================================
 # Multi-Wallet Auth Endpoints (using wallet_org_memberships)
@@ -5274,12 +5150,10 @@ class AuthNonceRequest(BaseModel):
     wallet_address: str
     chain_type: str  # 'evm', 'tron', 'solana', 'lightning'
 
-
 class AuthNonceResponse(BaseModel):
     nonce: str
     message: str
     expires_at: str
-
 
 class AuthOnboardRequest(BaseModel):
     invitation_token: str
@@ -5288,13 +5162,11 @@ class AuthOnboardRequest(BaseModel):
     message: str
     signature: str
 
-
 class AuthLoginRequest(BaseModel):
     wallet_address: str
     chain_type: str
     message: str
     signature: str
-
 
 class AddWalletRequest(BaseModel):
     wallet_address: str
@@ -5302,7 +5174,6 @@ class AddWalletRequest(BaseModel):
     message: str
     signature: str
     label: Optional[str] = None
-
 
 @app.post("/api/v1/enterprise/auth/nonce", response_model=AuthNonceResponse)
 async def auth_nonce(body: AuthNonceRequest, request: Request):
@@ -5328,7 +5199,6 @@ async def auth_nonce(body: AuthNonceRequest, request: Request):
         conn.close()
     
     return AuthNonceResponse(nonce=nonce, message=message, expires_at=expires_at.isoformat())
-
 
 @app.post("/api/v1/enterprise/auth/onboard")
 async def auth_onboard(body: AuthOnboardRequest, request: Request):
@@ -5449,7 +5319,6 @@ async def auth_onboard(body: AuthOnboardRequest, request: Request):
         cursor.close()
         conn.close()
 
-
 @app.post("/api/v1/enterprise/auth/login")
 async def auth_login(body: AuthLoginRequest, request: Request):
     """Returning user login via bound wallet."""
@@ -5546,7 +5415,6 @@ async def auth_login(body: AuthLoginRequest, request: Request):
         cursor.close()
         conn.close()
 
-
 @app.post("/api/v1/enterprise/wallets/add")
 async def add_wallet(body: AddWalletRequest, request: Request):
     """Add additional wallet to existing account."""
@@ -5622,7 +5490,6 @@ async def add_wallet(body: AddWalletRequest, request: Request):
         cursor.close()
         conn.close()
 
-
 @app.get("/api/v1/enterprise/wallets")
 def get_wallets(request: Request):
     """Get all wallets bound to authenticated account."""
@@ -5665,7 +5532,6 @@ def get_wallets(request: Request):
     finally:
         cursor.close()
         conn.close()
-
 
 # ============================================================
 # TRON RAIL ENDPOINTS
@@ -6146,7 +6012,6 @@ async def get_tron_leaderboard(
         cursor.close()
         conn.close()
 
-
 @app.get("/api/v1/transactions/{tx_hash}/details")
 async def transaction_details(tx_hash: str):
     """
@@ -6248,7 +6113,6 @@ async def transaction_details(tx_hash: str):
         cursor.close()
         conn.close()
 
-
 # ============================================================
 # SPEC 3.1: THIRD-PARTY ATTESTATION ENDPOINTS
 # ============================================================
@@ -6260,7 +6124,6 @@ class VerifyCredentialRequest(BaseModel):
     class Config:
         extra = "forbid"
 
-
 class CacheAttestationRequest(BaseModel):
     """Request body for caching an attestation."""
     credential: Dict
@@ -6268,7 +6131,6 @@ class CacheAttestationRequest(BaseModel):
     
     class Config:
         extra = "forbid"
-
 
 @app.post("/verify")
 async def verify_credential_endpoint(request: VerifyCredentialRequest):
@@ -6302,7 +6164,6 @@ async def verify_credential_endpoint(request: VerifyCredentialRequest):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Verification failed: {str(e)}")
-
 
 @app.post("/api/v1/attestations/cache")
 async def cache_attestation(request: CacheAttestationRequest):
@@ -6397,6 +6258,78 @@ async def cache_attestation(request: CacheAttestationRequest):
     finally:
         cursor.close()
         conn.close()
+
+@app.get("/api/v1/attestations/cache/{record_id}")
+async def get_cached_attestation(record_id: int):
+    """
+    Get a specific cached attestation by its record ID.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    
+    try:
+        cursor.execute("""
+            SELECT 
+                id,
+                credential_id,
+                credential_type,
+                issuer_did,
+                subject_did,
+                credential_jsonld,
+                credential_url,
+                valid_from,
+                valid_until,
+                cached_at,
+                last_verified_at
+            FROM partner_attestations
+            WHERE id = %s
+        """, (record_id,))
+        
+        row = cursor.fetchone()
+        
+        if not row:
+            raise HTTPException(status_code=404, detail="Attestation record not found")
+        
+        attestation = {
+            "id": row['id'],
+            "credential_id": row['credential_id'],
+            "credential_type": row['credential_type'],
+            "issuer_did": row['issuer_did'],
+            "subject_did": row['subject_did'],
+            "credential_url": row['credential_url'],
+            "valid_from": row['valid_from'].isoformat() if row['valid_from'] else None,
+            "valid_until": row['valid_until'].isoformat() if row['valid_until'] else None,
+            "cached_at": row['cached_at'].isoformat() if row['cached_at'] else None,
+            "last_verified_at": row['last_verified_at'].isoformat() if row['last_verified_at'] else None
+        }
+        
+        if row['credential_jsonld']:
+            try:
+                if isinstance(row['credential_jsonld'], str):
+                    attestation['credential'] = json.loads(row['credential_jsonld'])
+                else:
+                    attestation['credential'] = row['credential_jsonld']
+            except:
+                pass
+        
+        # Check if still valid
+        now = datetime.now(timezone.utc)
+        valid_until = row['valid_until']
+        if isinstance(valid_until, str):
+            valid_until = datetime.fromisoformat(valid_until.replace('Z', '+00:00'))
+        
+        attestation['is_valid'] = valid_until > now if valid_until else False
+        
+        return attestation
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve attestation: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
 
 
 @app.get("/api/v1/attestations/{subject_did:path}")
@@ -6495,79 +6428,6 @@ async def get_attestations(
     finally:
         cursor.close()
         conn.close()
-
-
-@app.get("/api/v1/attestations/cache/{record_id}")
-async def get_cached_attestation(record_id: int):
-    """
-    Get a specific cached attestation by its record ID.
-    """
-    conn = get_db_connection()
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    
-    try:
-        cursor.execute("""
-            SELECT 
-                id,
-                credential_id,
-                credential_type,
-                issuer_did,
-                subject_did,
-                credential_jsonld,
-                credential_url,
-                valid_from,
-                valid_until,
-                cached_at,
-                last_verified_at
-            FROM partner_attestations
-            WHERE id = %s
-        """, (record_id,))
-        
-        row = cursor.fetchone()
-        
-        if not row:
-            raise HTTPException(status_code=404, detail="Attestation record not found")
-        
-        attestation = {
-            "id": row['id'],
-            "credential_id": row['credential_id'],
-            "credential_type": row['credential_type'],
-            "issuer_did": row['issuer_did'],
-            "subject_did": row['subject_did'],
-            "credential_url": row['credential_url'],
-            "valid_from": row['valid_from'].isoformat() if row['valid_from'] else None,
-            "valid_until": row['valid_until'].isoformat() if row['valid_until'] else None,
-            "cached_at": row['cached_at'].isoformat() if row['cached_at'] else None,
-            "last_verified_at": row['last_verified_at'].isoformat() if row['last_verified_at'] else None
-        }
-        
-        if row['credential_jsonld']:
-            try:
-                if isinstance(row['credential_jsonld'], str):
-                    attestation['credential'] = json.loads(row['credential_jsonld'])
-                else:
-                    attestation['credential'] = row['credential_jsonld']
-            except:
-                pass
-        
-        # Check if still valid
-        now = datetime.now(timezone.utc)
-        valid_until = row['valid_until']
-        if isinstance(valid_until, str):
-            valid_until = datetime.fromisoformat(valid_until.replace('Z', '+00:00'))
-        
-        attestation['is_valid'] = valid_until > now if valid_until else False
-        
-        return attestation
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve attestation: {str(e)}")
-    finally:
-        cursor.close()
-        conn.close()
-
 
 # ============================================================
 # END SPEC 3.1 ENDPOINTS
