@@ -137,6 +137,48 @@ from policy_routes import router as policy_router, configure as configure_policy
 from at_policy_engine import router as at_policy_router, configure as configure_at_policy
 from policy_client import consult_policy_engine, PolicyDecision
 
+# --- Spec 3.5: Policy consultation helper for write paths ---
+def _consult_policy(org_id, action_type, action_context):
+    """Call policy engine if registered. Returns None on permit, raises on deny/pending/unavailable."""
+    if org_id is None:
+        return  # No org context → permit (OP-layer, no org scoping)
+    try:
+        conn_policy = get_db_connection()
+        try:
+            result = consult_policy_engine(conn_policy, org_id, action_type, action_context)
+            if result.decision == PolicyDecision.PERMIT:
+                return
+            elif result.decision == PolicyDecision.DENY:
+                raise HTTPException(status_code=403, detail={
+                    "error": "policy_deny",
+                    "reason": result.reason,
+                    "policy_id": result.policy_id,
+                    "violations": result.violations,
+                })
+            elif result.decision == PolicyDecision.PENDING_APPROVAL:
+                raise HTTPException(status_code=202, detail={
+                    "error": "pending_approval",
+                    "approval_status_url": result.approval_status_url,
+                    "request_id": result.request_id,
+                })
+            else:  # UNAVAILABLE or SIGNATURE_INVALID
+                raise HTTPException(status_code=503, detail={
+                    "error": "policy_engine_unavailable",
+                    "reason": result.reason,
+                })
+        finally:
+            conn_policy.close()
+    except HTTPException:
+        raise
+    except Exception:
+        pass  # If consultation infrastructure itself fails, permit (defense in depth)
+
+def _get_agent_org_id(cursor, agent_id):
+    """Look up org_id for an agent. Returns None if not found."""
+    cursor.execute("SELECT org_id FROM observer_agents WHERE agent_id = %s", (agent_id,))
+    row = cursor.fetchone()
+    return row[0] if row else None
+
 # Spec 3.3: Status list routes (revocation/suspension)
 from status_list_routes import router as status_list_router, configure as configure_status_lists
 
@@ -1516,6 +1558,13 @@ def submit_transaction(
         if not is_valid:
             raise HTTPException(status_code=400, detail="Transaction signature verification failed")
         
+        # Policy consultation
+        _agent_org = _get_agent_org_id(cursor, agent_id)
+        _consult_policy(_agent_org, "transaction.submit", {
+            "actor": {"agent_id": agent_id, "agent_did": agent_did},
+            "transaction": {"rail": protocol, "reference_id": transaction_reference},
+        })
+
         # Determine amount_bucket from optional_metadata if provided
         amount_bucket = "unknown"
         if optional_metadata:
@@ -2967,7 +3016,7 @@ def revoke_credential(
     Revoked credentials are permanently invalidated and cannot be renewed.
     A new credential must be issued.
     """
-    validate_enterprise_session(raw_request)
+    _rev_session = validate_enterprise_session(raw_request)
     valid_reasons = ['compromise', 'expiry', 'violation', 'request', 'other']
     
     if reason not in valid_reasons:
@@ -2976,6 +3025,11 @@ def revoke_credential(
             detail=f"Invalid reason. Must be one of: {', '.join(valid_reasons)}"
         )
     
+
+    _consult_policy(_rev_session[1], "credential.revoke", {
+        "actor": {"credential_id": credential_id, "reason": reason},
+    })
+
     try:
         generator = VACGenerator()
         generator.revoke_vac(credential_id, reason, revoked_by)
@@ -3764,12 +3818,21 @@ def rotate_agent_key(agent_id: str, request: KeyRotationRequest, raw_request: Re
     Builds a new DID Document from the new public key and stores it.
     The DID string itself never changes — only the verificationMethod is updated.
     """
-    validate_enterprise_session(raw_request)
+    _rot_session = validate_enterprise_session(raw_request)
     if not request.new_public_key or len(request.new_public_key) < 32:
         raise HTTPException(
             status_code=400,
             detail="new_public_key must be at least 32 characters",
         )
+
+    _rot_conn = get_db_connection()
+    _rot_cursor = _rot_conn.cursor()
+    _rot_org = _get_agent_org_id(_rot_cursor, agent_id)
+    _rot_cursor.close()
+    _rot_conn.close()
+    _consult_policy(_rot_org, "credential.rotate_key", {
+        "actor": {"agent_id": agent_id},
+    })
 
     try:
         new_did_document = build_agent_did_document(agent_id, request.new_public_key)
@@ -3954,7 +4017,10 @@ def approve_delegation(request: DelegationApprovalRequest, raw_request: Request)
     Called by AT dashboard when human admin approves.
     Issues VC, stores on agent record, and recomputes trust score.
     """
-    validate_enterprise_session(raw_request)
+    _del_session = validate_enterprise_session(raw_request)
+    _consult_policy(_del_session[1], "delegation.grant", {
+        "actor": {"request_id": getattr(request, 'request_id', 'unknown')},
+    })
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     
@@ -5762,6 +5828,20 @@ async def submit_tron_receipt(body: TRONReceiptSubmitRequest):
     if not rail_result.get('verified') and not rail_result.get('valid'):
         raise HTTPException(status_code=400, detail="VC signature verification failed")
     
+    # Policy consultation
+    _cs = vc.get('credentialSubject', {})
+    _tron_agent_id = _cs.get('agentId') or (_cs.get('id', '').split('/')[-1] if '/agents/' in _cs.get('id', '') else None)
+    if _tron_agent_id:
+        _tron_conn = get_db_connection()
+        _tron_cursor = _tron_conn.cursor()
+        _tron_org = _get_agent_org_id(_tron_cursor, _tron_agent_id)
+        _tron_cursor.close()
+        _tron_conn.close()
+        _consult_policy(_tron_org, "transaction.submit", {
+            "actor": {"agent_id": _tron_agent_id},
+            "transaction": {"rail": _cs.get('rail', 'tron'), "amount": str(_cs.get('amount', '')), "reference_id": _cs.get('tronTxHash', '')},
+        })
+
     # Persist to database
     conn = get_db_connection()
     cursor = conn.cursor()
