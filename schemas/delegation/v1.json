@@ -1,0 +1,127 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://observerprotocol.org/schemas/delegation/v1.json",
+  "title": "Delegation Credential Schema",
+  "description": "JSON Schema for DelegationCredential Verifiable Credentials. Recursive DID-to-DID delegation primitive per Spec 3.2.",
+  "type": "object",
+  "required": [
+    "@context",
+    "id",
+    "type",
+    "issuer",
+    "validFrom",
+    "validUntil",
+    "credentialSubject",
+    "credentialSchema",
+    "proof"
+  ],
+  "properties": {
+    "@context": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "type": "string" },
+      "contains": { "enum": ["https://www.w3.org/ns/credentials/v2"] }
+    },
+    "id": { "type": "string", "format": "uri", "pattern": "^https://" },
+    "type": {
+      "type": "array",
+      "minItems": 2,
+      "contains": { "const": "VerifiableCredential" }
+    },
+    "issuer": { "type": "string", "pattern": "^did:[a-z]+:.+" },
+    "validFrom": { "type": "string", "format": "date-time" },
+    "validUntil": { "type": "string", "format": "date-time" },
+    "credentialSubject": {
+      "type": "object",
+      "required": ["id", "actionScope", "delegationScope", "enforcementMode"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^did:[a-z]+:.+" },
+        "actionScope": {
+          "type": "object",
+          "properties": {
+            "allowed_rails": { "type": "array", "items": { "type": "string" } },
+            "allowed_counterparty_types": { "type": "array", "items": { "type": "string" } },
+            "per_transaction_ceiling": {
+              "type": "object",
+              "properties": {
+                "amount": { "type": "string" },
+                "currency": { "type": "string" }
+              }
+            },
+            "cumulative_ceiling": {
+              "type": "object",
+              "properties": {
+                "amount": { "type": "string" },
+                "currency": { "type": "string" },
+                "period": { "type": "string" }
+              }
+            },
+            "geographic_restriction": {
+              "type": "object",
+              "properties": {
+                "allowed": { "type": "array", "items": { "type": "string" } },
+                "disallowed": { "type": "array", "items": { "type": "string" } }
+              }
+            },
+            "allowed_merchant_categories": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "delegationScope": {
+          "type": "object",
+          "required": ["may_delegate_further"],
+          "properties": {
+            "may_delegate_further": { "type": "boolean" },
+            "max_child_action_scope": { "type": "object" },
+            "may_delegate_delegation_authority": { "type": "boolean" },
+            "allowed_child_subject_types": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "acl": {
+          "type": "object",
+          "properties": {
+            "revocation_authority": { "type": "array", "items": { "type": "string", "pattern": "^did:" } },
+            "modification_authority": { "type": "array", "items": { "type": "string", "pattern": "^did:" } }
+          }
+        },
+        "enforcementMode": { "type": "string", "enum": ["protocol_native", "pre_transaction_check"] },
+        "parentDelegationId": { "type": ["string", "null"], "format": "uri" },
+        "kybCredentialId": { "type": ["string", "null"], "format": "uri" }
+      }
+    },
+    "credentialSchema": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^https://observerprotocol.org/schemas/" },
+        "type": { "const": "JsonSchema" }
+      }
+    },
+    "credentialStatus": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "statusPurpose", "statusListIndex", "statusListCredential"],
+        "properties": {
+          "id": { "type": "string", "format": "uri" },
+          "type": { "type": "string", "const": "BitstringStatusListEntry" },
+          "statusPurpose": { "type": "string", "enum": ["revocation", "suspension"] },
+          "statusListIndex": { "type": "string", "pattern": "^[0-9]+$" },
+          "statusListCredential": { "type": "string", "format": "uri" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "proof": {
+      "type": "object",
+      "required": ["type", "created", "verificationMethod", "proofPurpose", "proofValue"],
+      "properties": {
+        "type": { "const": "Ed25519Signature2020" },
+        "created": { "type": "string", "format": "date-time" },
+        "verificationMethod": { "type": "string", "pattern": "^did:[a-z]+:.+#.+" },
+        "proofPurpose": { "const": "assertionMethod" },
+        "proofValue": { "type": "string", "pattern": "^[1-9A-HJ-NP-Za-km-z]+$" }
+      }
+    }
+  },
+  "additionalProperties": false
+}

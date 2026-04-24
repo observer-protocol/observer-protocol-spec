@@ -138,6 +138,9 @@ from at_policy_engine import router as at_policy_router, configure as configure_
 
 # Spec 3.6: Counterparty Management
 from counterparty_routes import router as counterparty_router, configure as configure_counterparties
+
+# Spec 3.2: Delegation verification
+from delegation_routes import router as delegation_verify_router, configure as configure_delegation_verify
 from policy_client import consult_policy_engine, PolicyDecision
 
 # --- Spec 3.5: Policy consultation helper for write paths ---
@@ -479,6 +482,15 @@ configure_counterparties(
     validate_session_fn=validate_enterprise_session,
 )
 app.include_router(counterparty_router)
+
+# ============================================================
+# SPEC 3.2: DELEGATION VERIFICATION (skeleton)
+# ============================================================
+configure_delegation_verify(
+    get_db_connection_fn=get_db_connection,
+    resolve_did_fn=resolve_did,
+)
+app.include_router(delegation_verify_router)
 
 @app.on_event("startup")
 def startup_event():
