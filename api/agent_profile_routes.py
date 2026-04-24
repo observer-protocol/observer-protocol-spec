@@ -101,26 +101,28 @@ def get_agent_profile(agent_id: str, request: Request):
 
         is_same_org = is_authenticated and session_org_id == org_id
 
-        # 2. Trust score (TRON-specific for now)
+        # 2. Trust score — canonical source: v_tron_trust_metrics + AT-ARS-1.0
         trust_data = None
+        computed_trust_score = None
         try:
-            cursor.execute("""
-                SELECT tr.receipt_count, tr.unique_senders, tr.total_trx_volume,
-                       tr.total_stablecoin_volume, tr.last_activity
-                FROM tron_receipt_stats tr
-                WHERE tr.agent_id = %s
-            """, (agent_id,))
-            stats = cursor.fetchone()
-            if stats:
+            cursor.execute("SELECT * FROM v_tron_trust_metrics WHERE agent_id = %s", (agent_id,))
+            metrics_row = cursor.fetchone()
+            if metrics_row:
+                col_names = [desc[0] for desc in cursor.description]
+                metrics = dict(zip(col_names, metrics_row))
+                from trust_score import compute_tron_trust_score
+                score_result = compute_tron_trust_score(metrics)
+                computed_trust_score = score_result["trust_score"]
                 trust_data = {
-                    "receipt_count": stats[0],
-                    "unique_counterparties": stats[1],
-                    "total_volume_trx": str(stats[2]) if stats[2] else "0",
-                    "total_volume_stablecoin": str(stats[3]) if stats[3] else "0",
-                    "last_activity": stats[4].isoformat() if hasattr(stats[4], "isoformat") else str(stats[4]) if stats[4] else None,
+                    "receipt_count": metrics.get("tron_receipt_count", 0),
+                    "unique_counterparties": metrics.get("unique_tron_counterparties", 0),
+                    "total_volume_trx": str(metrics.get("total_trx_volume", 0) or 0),
+                    "total_volume_stablecoin": str(metrics.get("total_stablecoin_volume", 0) or 0),
+                    "last_activity": metrics.get("last_tron_tx").isoformat() if metrics.get("last_tron_tx") and hasattr(metrics["last_tron_tx"], "isoformat") else str(metrics.get("last_tron_tx")) if metrics.get("last_tron_tx") else None,
+                    "components": score_result.get("components", {}),
                 }
         except Exception:
-            pass  # Table may not exist; trust data is optional
+            pass  # View may not exist; trust data is optional
 
         # 3. Rails from DID document service entries
         rails = []
@@ -133,11 +135,12 @@ def get_agent_profile(agent_id: str, request: Request):
             if dd_row and dd_row[0]:
                 dd = dd_row[0] if isinstance(dd_row[0], dict) else json.loads(dd_row[0])
                 for svc in dd.get("service", []):
-                    if svc.get("type") == "PaymentRail":
-                        rails.append({
-                            "network": svc.get("network"),
-                            "asset": svc.get("asset"),
-                        })
+                    rails.append({
+                        "type": svc.get("type"),
+                        "network": svc.get("network"),
+                        "asset": svc.get("asset"),
+                        "description": svc.get("description"),
+                    })
         except Exception:
             pass
 
@@ -145,7 +148,7 @@ def get_agent_profile(agent_id: str, request: Request):
         tx_count = 0
         try:
             cursor.execute(
-                "SELECT COUNT(*) FROM tron_receipts WHERE agent_id = %s",
+                "SELECT COUNT(*) FROM tron_receipts WHERE subject_agent_id = %s AND verified = TRUE",
                 (agent_id,),
             )
             tx_count = cursor.fetchone()[0]
@@ -186,7 +189,7 @@ def get_agent_profile(agent_id: str, request: Request):
             "verified": verified,
             "verified_at": verified_at.isoformat() if hasattr(verified_at, "isoformat") else str(verified_at) if verified_at else None,
             "created_at": created_at.isoformat() if hasattr(created_at, "isoformat") else str(created_at) if created_at else None,
-            "trust_score": float(trust_score) if trust_score else None,
+            "trust_score": computed_trust_score if computed_trust_score is not None else (float(trust_score) if trust_score else None),
             "trust_data": trust_data,
             "rails": rails,
             "transaction_count": tx_count,
@@ -275,7 +278,7 @@ def get_agent_counterparties(
                     r.rail,
                     r.asset
                 FROM tron_receipts r
-                WHERE r.agent_id = %s
+                WHERE r.subject_agent_id = %s
                 GROUP BY r.sender_address, r.rail, r.asset
                 ORDER BY MAX(r.tx_timestamp) DESC
                 LIMIT %s OFFSET %s
@@ -349,26 +352,25 @@ def get_generalized_trust_score(agent_id: str):
         if not agent:
             raise HTTPException(status_code=404, detail="Agent not found")
 
-        # Try TRON score (currently the only rail with scoring)
+        # Canonical trust score: v_tron_trust_metrics + AT-ARS-1.0
         tron_score = None
+        source_rail = "none"
         try:
-            cursor.execute("""
-                SELECT tr.receipt_count, tr.unique_senders,
-                       tr.total_trx_volume, tr.total_stablecoin_volume,
-                       tr.last_activity
-                FROM tron_receipt_stats tr
-                WHERE tr.agent_id = %s
-            """, (agent_id,))
-            stats = cursor.fetchone()
-            if stats and stats[0] > 0:
-                # Use the trust_score from observer_agents (computed by AT-ARS)
-                tron_score = float(agent[1]) if agent[1] else 0
+            cursor.execute("SELECT * FROM v_tron_trust_metrics WHERE agent_id = %s", (agent_id,))
+            metrics_row = cursor.fetchone()
+            if metrics_row:
+                col_names = [desc[0] for desc in cursor.description]
+                metrics = dict(zip(col_names, metrics_row))
+                from trust_score import compute_tron_trust_score
+                score_result = compute_tron_trust_score(metrics)
+                tron_score = score_result["trust_score"]
+                source_rail = "tron"
         except Exception:
             pass
 
-        # Return best available score
-        best_score = tron_score or (float(agent[1]) if agent[1] else 0)
-        source_rail = "tron" if tron_score else "aggregate"
+        best_score = tron_score if tron_score is not None else 0
+        if source_rail == "none":
+            source_rail = "aggregate"
 
         return JSONResponse(content={
             "agent_id": agent_id,
