@@ -128,6 +128,9 @@ from sso_routes import router as sso_router, configure as configure_sso
 # Spec 3.4: Audit routes (compliance and audit trails)
 from audit_routes import router as audit_router, configure as configure_audit
 
+# Spec 3.7: Agent Profile routes
+from agent_profile_routes import router as profile_router, configure as configure_profile
+
 # Spec 3.3: Status list routes (revocation/suspension)
 from status_list_routes import router as status_list_router, configure as configure_status_lists
 
@@ -391,6 +394,15 @@ configure_audit(
     verify_vc_signature_fn=_verify_vc_for_audit,
 )
 app.include_router(audit_router)
+
+# ============================================================
+# SPEC 3.7: AGENT PROFILE ROUTES
+# ============================================================
+configure_profile(
+    get_db_connection_fn=get_db_connection,
+    validate_session_fn=validate_enterprise_session,
+)
+app.include_router(profile_router)
 
 @app.on_event("startup")
 def startup_event():
