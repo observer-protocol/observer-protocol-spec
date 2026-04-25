@@ -491,6 +491,21 @@ configure_delegation_verify(
     resolve_did_fn=resolve_did,
 )
 app.include_router(delegation_verify_router)
+=======
+# ── AT Verify endpoints (Phase 1B) ────────────────────────────
+try:
+    from verify_endpoints import router as verify_router
+    app.include_router(verify_router)
+    print("AT Verify endpoints mounted: /v1/chain/verify, /v1/audit/verified-event")
+except ImportError as e:
+    print(f"AT Verify endpoints not loaded (optional): {e}")
+
+try:
+    from vac_extensions import router as extensions_router
+    app.include_router(extensions_router)
+    print("VAC Extension endpoints mounted: /v1/vac/extensions/register, /v1/vac/extensions/attest")
+except ImportError as e:
+    print(f"VAC Extension endpoints not loaded (optional): {e}")
 
 @app.on_event("startup")
 def startup_event():
