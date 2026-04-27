@@ -6665,8 +6665,8 @@ async def get_cached_attestation(record_id: int):
 
 
 
-@app.get("/api/v1/attestations/by-issuer/{issuer_did:path}")
-def get_attestations_by_issuer(issuer_did: str, credential_type: Optional[str] = None):
+@app.get("/api/v1/principal/claimed-agents")
+def get_attestations_by_issuer(issuer_did: str, credential_type: Optional[str] = "PrincipalAttestationCredential"):
     """
     Get all attestations issued by a given DID.
     Used by Sovereign dashboard to find agents claimed by a principal.
