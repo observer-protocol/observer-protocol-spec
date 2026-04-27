@@ -6520,6 +6520,78 @@ async def cache_attestation(request: CacheAttestationRequest):
         cursor.close()
         conn.close()
 
+@app.post("/api/v1/attestations/store")
+async def store_signed_attestation(request: CacheAttestationRequest):
+    """
+    Store a pre-signed attestation credential.
+
+    The credential must contain a valid proof field. Signature verification
+    is deferred to read time — any party can verify independently by
+    resolving the issuer DID and checking the Ed25519 signature.
+
+    This endpoint stores the credential as-is. It does NOT re-verify
+    the signature server-side (the issuer signed it, the verifier checks it).
+    This is the correct trust model per AIP v0.5.
+    """
+    credential = request.credential
+
+    # Basic structure checks (no crypto verification)
+    if not credential.get("proof"):
+        raise HTTPException(status_code=400, detail="Credential must have a proof field")
+    if not credential.get("credentialSubject"):
+        raise HTTPException(status_code=400, detail="Credential must have a credentialSubject")
+
+    credential_id = credential.get("id", f"urn:uuid:{uuid.uuid4()}")
+    credential_types = credential.get("type", [])
+    credential_type = credential_types[1] if len(credential_types) >= 2 else credential_types[0] if credential_types else "Unknown"
+
+    issuer = credential.get("issuer")
+    issuer_did = issuer if isinstance(issuer, str) else issuer.get("id", "") if isinstance(issuer, dict) else ""
+
+    subject = credential.get("credentialSubject", {})
+    subject_did = subject.get("id", "")
+
+    valid_from = credential.get("validFrom")
+    valid_until = credential.get("validUntil")
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            INSERT INTO partner_attestations (
+                credential_id, credential_type, issuer_did, subject_did,
+                credential_jsonld, valid_from, valid_until, cached_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+            ON CONFLICT (credential_id) DO UPDATE SET
+                credential_jsonld = EXCLUDED.credential_jsonld,
+                cached_at = NOW()
+            RETURNING id
+        """, (
+            credential_id, credential_type, issuer_did, subject_did,
+            json.dumps(credential), valid_from, valid_until
+        ))
+
+        record_id = cursor.fetchone()[0]
+        conn.commit()
+
+        return {
+            "success": True,
+            "record_id": record_id,
+            "credential_id": credential_id,
+            "credential_type": credential_type,
+            "issuer_did": issuer_did,
+            "subject_did": subject_did,
+            "stored_at": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to store attestation: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
 @app.get("/api/v1/attestations/cache/{record_id}")
 async def get_cached_attestation(record_id: int):
     """
