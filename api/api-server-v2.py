@@ -1703,13 +1703,13 @@ def submit_transaction(
         cursor.execute("""
             INSERT INTO verified_events (
                 event_id, agent_id, counterparty_id, event_type, protocol,
-                transaction_hash, time_window, amount_bucket, direction,
+                transaction_hash, time_window, amount_bucket, amount_sats, direction,
                 service_description, preimage, verified, created_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
         """, (
             event_id, agent_id, counterparty_id, event_type, protocol,
             transaction_reference, timestamp[:10] if timestamp else None,
-            amount_bucket, direction, service_description, preimage, True
+            amount_bucket, amount_sats, direction, service_description, preimage, True
         ))
         
         conn.commit()
@@ -1824,18 +1824,36 @@ def get_agent_transactions_public(agent_id: str, limit: int = 50):
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     try:
-        # Resolve agent aliases — Maxi has both 'maxi-0001' and 'd13cdfce...' IDs
-        # Query both the requested ID and any alias that shares the same agent_did
-        cursor.execute("""
-            SELECT agent_id FROM observer_agents
-            WHERE agent_id = %s
-               OR agent_did = (SELECT agent_did FROM observer_agents WHERE agent_id = %s LIMIT 1)
-        """, (agent_id, agent_id))
-        alias_rows = cursor.fetchall()
-        agent_ids = [r['agent_id'] for r in alias_rows] if alias_rows else [agent_id]
-        # Also include the literal requested ID in case it's not in observer_agents
-        if agent_id not in agent_ids:
-            agent_ids.append(agent_id)
+        # Resolve agent aliases — collect all agent_ids that belong to the same agent
+        # Checks: same agent_did, same public key hash, or known alias mappings
+        agent_ids = [agent_id]
+        try:
+            cursor.execute("""
+                SELECT DISTINCT oa2.agent_id FROM observer_agents oa1
+                JOIN observer_agents oa2 ON (
+                    oa2.agent_did = oa1.agent_did
+                    OR oa2.public_key = oa1.public_key
+                )
+                WHERE oa1.agent_id = %s AND oa2.agent_id != %s
+            """, (agent_id, agent_id))
+            for row in cursor.fetchall():
+                if row['agent_id'] not in agent_ids:
+                    agent_ids.append(row['agent_id'])
+        except Exception:
+            pass
+        # Also check identity_links table if it exists
+        try:
+            cursor.execute("""
+                SELECT alias_agent_id FROM identity_links WHERE canonical_agent_id = %s
+                UNION
+                SELECT canonical_agent_id FROM identity_links WHERE alias_agent_id = %s
+            """, (agent_id, agent_id))
+            for row in cursor.fetchall():
+                aid = row.get('alias_agent_id') or row.get('canonical_agent_id')
+                if aid and aid not in agent_ids:
+                    agent_ids.append(aid)
+        except Exception:
+            pass
 
         cursor.execute("""
             SELECT
