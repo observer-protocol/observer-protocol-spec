@@ -58,10 +58,12 @@ You'll learn how to:
 | Surface | URL | Purpose |
 |---------|-----|---------|
 | Production API | `api.observerprotocol.org` | Live OP endpoints |
+| Developer Sandbox | `sandbox.observerprotocol.org` | Sandbox with fixtures and interactive docs |
+| Sandbox API Docs | `sandbox.observerprotocol.org/docs/` | Interactive Swagger UI for sandbox |
 | Sovereign Dashboard | `app.agenticterminal.io/sovereign` | Agent management UI |
 | Enterprise Dashboard | `app.agenticterminal.io/enterprise` | Organization management |
 | DID Resolution | `api.observerprotocol.org/agents/{id}/did.json` | Public DID documents |
-| API Docs (Swagger) | `api.observerprotocol.org/docs` | Interactive API explorer |
+| Receipt Verifier | `observerprotocol.org/verify-receipt.html` | Client-side credential verification |
 
 ## Getting sandbox access
 

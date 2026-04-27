@@ -1,5 +1,8 @@
 # Sandbox Environment
 
+**Live at:** [sandbox.observerprotocol.org](https://sandbox.observerprotocol.org)
+**Interactive docs:** [sandbox.observerprotocol.org/docs/](https://sandbox.observerprotocol.org/docs/)
+
 The sandbox is a developer-isolated environment for integration testing. It has its own database, signing keys, and fixture data — completely separate from production.
 
 ## What the sandbox provides
@@ -9,6 +12,7 @@ The sandbox is a developer-isolated environment for integration testing. It has 
 - **Policy simulator** — Hardcoded trust-threshold check (deterministic for testing)
 - **Reseedable state** — Reset to a known clean state between test runs
 - **Same API shape** — Request/response formats match production
+- **Interactive API docs** — Swagger UI at `/docs/` for exploring and testing endpoints in the browser
 
 ## Getting access
 
