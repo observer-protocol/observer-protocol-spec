@@ -1777,6 +1777,55 @@ def get_feed(request: Request, limit: int = 50):
         cursor.close()
         conn.close()
 
+@app.get("/observer/agent/{agent_id}/transactions")
+def get_agent_transactions_public(agent_id: str, limit: int = 50):
+    """Get verified transactions for a specific agent. Public endpoint — no auth required."""
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    try:
+        cursor.execute("""
+            SELECT
+                ve.event_id,
+                ve.event_type,
+                ve.protocol,
+                ve.transaction_hash,
+                ve.time_window,
+                ve.amount_bucket,
+                COALESCE(ve.amount_sats, 0) as amount_sats,
+                ve.direction,
+                ve.service_description,
+                ve.preimage,
+                ve.counterparty_id,
+                ve.verified,
+                ve.created_at
+            FROM verified_events ve
+            WHERE ve.agent_id = %s
+            ORDER BY ve.created_at DESC
+            LIMIT %s
+        """, (agent_id, limit,))
+
+        events = []
+        for r in cursor.fetchall():
+            event = dict(r)
+            if event.get('created_at'):
+                event['created_at'] = event['created_at'].isoformat()
+            if event.get('time_window'):
+                event['time_window'] = str(event['time_window'])
+            events.append(event)
+
+        return {
+            "agent_id": agent_id,
+            "events": events,
+            "count": len(events)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get agent transactions: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
 def _generate_badge_svg(
     agent_name: str,
     agent_seq: int,
