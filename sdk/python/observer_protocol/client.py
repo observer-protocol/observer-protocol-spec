@@ -136,15 +136,15 @@ class ObserverClient:
         Returns:
             Agent with agent_id, agent_did, and did_document
         """
-        body: Dict[str, Any] = {"public_key": public_key}
+        params: Dict[str, Any] = {"public_key": public_key}
         if agent_name:
-            body["agent_name"] = agent_name
+            params["agent_name"] = agent_name
         if alias:
-            body["alias"] = alias
+            params["alias"] = alias
         if framework:
-            body["framework"] = framework
+            params["framework"] = framework
 
-        data = self._post("/observer/register-agent", body)
+        data = self._post("/observer/register-agent", params=params)
         return Agent.from_registration(data)
 
     def request_challenge(self, agent_id: str) -> Challenge:

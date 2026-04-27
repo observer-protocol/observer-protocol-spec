@@ -109,12 +109,12 @@ export class ObserverClient {
    * @returns {Promise<{agentId: string, agentDid: string, didDocument: Object}>}
    */
   async registerAgent({ publicKey, agentName, alias, framework }) {
-    const body = { public_key: publicKey };
-    if (agentName) body.agent_name = agentName;
-    if (alias) body.alias = alias;
-    if (framework) body.framework = framework;
+    const params = { public_key: publicKey };
+    if (agentName) params.agent_name = agentName;
+    if (alias) params.alias = alias;
+    if (framework) params.framework = framework;
 
-    const data = await this._post('/observer/register-agent', body);
+    const data = await this._post('/observer/register-agent', null, params);
     return {
       agentId: data.agent_id,
       agentDid: data.agent_did,

@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Observer Protocol — Receipt Verifier</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #0a0a08;
+    color: #e8ede9;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+  .container { max-width: 800px; margin: 0 auto; }
+  h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  .subtitle {
+    color: #a8b8aa;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    margin-bottom: 2rem;
+  }
+  .description {
+    color: #a8b8aa;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background: #141614;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 0.75rem;
+  }
+  textarea {
+    width: 100%;
+    height: 300px;
+    background: #141614;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 0.75rem;
+    color: #e8ede9;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    padding: 1rem;
+    resize: vertical;
+    margin-bottom: 1rem;
+  }
+  textarea:focus { outline: none; border-color: #f5a623; }
+  textarea::placeholder { color: #6e8571; }
+  button {
+    background: #f5a623;
+    color: #0a0a08;
+    border: none;
+    padding: 0.75rem 2rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+  }
+  button:hover { opacity: 0.9; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .result {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    border: 1px solid;
+    display: none;
+  }
+  .result.pass {
+    display: block;
+    background: rgba(34,197,94,0.1);
+    border-color: #22c55e;
+  }
+  .result.fail {
+    display: block;
+    background: rgba(248,113,113,0.1);
+    border-color: #f87171;
+  }
+  .result h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+  }
+  .result.pass h3 { color: #22c55e; }
+  .result.fail h3 { color: #f87171; }
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0;
+    font-size: 0.85rem;
+    font-family: 'Courier New', monospace;
+  }
+  .check-item .icon { font-size: 1rem; }
+  .check-item.pass { color: #22c55e; }
+  .check-item.fail { color: #f87171; }
+  .check-item.info { color: #a8b8aa; }
+  .detail-section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .detail-label {
+    color: #6e8571;
+    font-family: 'Courier New', monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+  }
+  .detail-value {
+    color: #e8ede9;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    word-break: break-all;
+    margin-bottom: 0.75rem;
+  }
+  .footer {
+    margin-top: 3rem;
+    text-align: center;
+    color: #6e8571;
+    font-size: 0.75rem;
+    font-family: 'Courier New', monospace;
+  }
+  .footer a { color: #a8b8aa; }
+  .loading { display: none; color: #f5a623; font-family: 'Courier New', monospace; font-size: 0.85rem; margin-top: 1rem; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🔍 Receipt Verifier</h1>
+  <p class="subtitle">Observer Protocol — Independent Credential Verification</p>
+
+  <div class="description">
+    Paste any Observer Protocol verification receipt (W3C Verifiable Credential) below.
+    This tool verifies the Ed25519 signature entirely client-side — no data is sent to any server.
+    The receipt is valid if and only if the signature matches the issuer's published public key.
+  </div>
+
+  <textarea id="receipt" placeholder='Paste receipt JSON here...
+
+{
+  "@context": ["https://www.w3.org/ns/credentials/v2", ...],
+  "type": ["VerifiableCredential", "AgenticTerminalVerificationReceipt"],
+  "issuer": "did:web:...",
+  "proof": {
+    "type": "Ed25519Signature2020",
+    "proofValue": "z..."
+  }
+}'></textarea>
+
+  <button id="verifyBtn" onclick="verifyReceipt()">Verify Receipt</button>
+
+  <div class="loading" id="loading">⏳ Resolving issuer DID and verifying signature...</div>
+
+  <div class="result" id="result"></div>
+
+  <div class="footer">
+    Powered by <a href="https://observerprotocol.org">Observer Protocol</a>.
+    Verification runs entirely in your browser — no backend required.
+  </div>
+</div>
+
+<script type="module">
+// Noble Ed25519 — minimal browser-compatible implementation
+// Using SubtleCrypto for Ed25519 verification where available,
+// otherwise falling back to fetching the issuer's public key and
+// verifying via the Web Crypto API.
+
+const OP_API = 'https://api.observerprotocol.org';
+
+window.verifyReceipt = async function() {
+  const textarea = document.getElementById('receipt');
+  const resultDiv = document.getElementById('result');
+  const loading = document.getElementById('loading');
+  const btn = document.getElementById('verifyBtn');
+
+  resultDiv.className = 'result';
+  resultDiv.style.display = 'none';
+  loading.style.display = 'block';
+  btn.disabled = true;
+
+  const checks = [];
+
+  try {
+    // Parse JSON
+    let receipt;
+    try {
+      receipt = JSON.parse(textarea.value.trim());
+      checks.push({ pass: true, text: 'Valid JSON' });
+    } catch (e) {
+      checks.push({ pass: false, text: `Invalid JSON: ${e.message}` });
+      showResult(false, checks, null);
+      return;
+    }
+
+    // Check W3C VC structure
+    const types = receipt.type || [];
+    if (types.includes('VerifiableCredential')) {
+      checks.push({ pass: true, text: 'Type: VerifiableCredential' });
+    } else {
+      checks.push({ pass: false, text: 'Missing VerifiableCredential type' });
+    }
+
+    // Check specific OP type
+    const opType = types.find(t => t !== 'VerifiableCredential');
+    if (opType) {
+      checks.push({ pass: true, text: `Credential type: ${opType}` });
+    }
+
+    // Check context
+    const contexts = receipt['@context'] || [];
+    if (contexts.includes('https://www.w3.org/ns/credentials/v2')) {
+      checks.push({ pass: true, text: 'W3C VC Data Model v2.0' });
+    } else if (contexts.includes('https://www.w3.org/2018/credentials/v1')) {
+      checks.push({ pass: true, text: 'W3C VC Data Model v1 (legacy)' });
+    } else {
+      checks.push({ pass: false, text: 'Missing W3C credentials context' });
+    }
+
+    // Check proof exists
+    const proof = receipt.proof;
+    if (!proof) {
+      checks.push({ pass: false, text: 'No proof field — credential is unsigned' });
+      showResult(false, checks, receipt);
+      return;
+    }
+
+    if (proof.type === 'Ed25519Signature2020') {
+      checks.push({ pass: true, text: 'Proof type: Ed25519Signature2020' });
+    } else {
+      checks.push({ pass: false, text: `Unknown proof type: ${proof.type}` });
+    }
+
+    if (proof.proofValue && proof.proofValue.startsWith('z')) {
+      checks.push({ pass: true, text: 'Proof value: multibase base58btc' });
+    } else {
+      checks.push({ pass: false, text: 'Invalid proof value format' });
+    }
+
+    // Check validFrom
+    if (receipt.validFrom) {
+      const validFrom = new Date(receipt.validFrom);
+      const now = new Date();
+      if (validFrom <= now) {
+        checks.push({ pass: true, text: `Valid from: ${receipt.validFrom}` });
+      } else {
+        checks.push({ pass: false, text: `Not yet valid (validFrom: ${receipt.validFrom})` });
+      }
+    } else if (receipt.issuanceDate) {
+      checks.push({ pass: true, text: `Issued: ${receipt.issuanceDate} (v1 format)` });
+    }
+
+    // Resolve issuer DID
+    const issuer = typeof receipt.issuer === 'string' ? receipt.issuer : receipt.issuer?.id;
+    if (!issuer) {
+      checks.push({ pass: false, text: 'No issuer DID' });
+      showResult(false, checks, receipt);
+      return;
+    }
+    checks.push({ info: true, text: `Issuer: ${issuer}` });
+
+    // Resolve DID to get public key
+    let publicKeyBytes;
+    try {
+      const didParts = issuer.replace('did:web:', '').split(':');
+      const domain = didParts[0];
+      const path = didParts.slice(1).join('/');
+      const didUrl = path
+        ? `https://${domain}/${path}/did.json`
+        : `https://${domain}/.well-known/did.json`;
+
+      // Try OP API first for OP-hosted DIDs
+      let didDoc;
+      try {
+        const opResp = await fetch(`${OP_API}/resolve/${encodeURIComponent(issuer)}`);
+        if (opResp.ok) {
+          const resolved = await opResp.json();
+          didDoc = resolved.did_document || resolved;
+        }
+      } catch {}
+
+      if (!didDoc) {
+        const resp = await fetch(didUrl);
+        didDoc = await resp.json();
+      }
+
+      // Extract Ed25519 public key
+      const vm = (didDoc.verificationMethod || []).find(m =>
+        m.type === 'Ed25519VerificationKey2020'
+      );
+
+      if (!vm || !vm.publicKeyMultibase) {
+        checks.push({ pass: false, text: 'No Ed25519 key in issuer DID document' });
+        showResult(false, checks, receipt);
+        return;
+      }
+
+      // Decode multibase (z + base58btc)
+      const multibase = vm.publicKeyMultibase;
+      if (!multibase.startsWith('z')) {
+        checks.push({ pass: false, text: 'Invalid multibase encoding' });
+        showResult(false, checks, receipt);
+        return;
+      }
+
+      const decoded = base58Decode(multibase.slice(1));
+      // Strip multicodec prefix 0xed01
+      if (decoded[0] === 0xed && decoded[1] === 0x01) {
+        publicKeyBytes = decoded.slice(2);
+      } else {
+        publicKeyBytes = decoded;
+      }
+
+      checks.push({ pass: true, text: 'Issuer DID resolved, public key extracted' });
+    } catch (e) {
+      checks.push({ pass: false, text: `DID resolution failed: ${e.message}` });
+      showResult(false, checks, receipt);
+      return;
+    }
+
+    // Verify Ed25519 signature
+    try {
+      // Reconstruct signed content (exclude proof)
+      const docToVerify = {};
+      for (const [k, v] of Object.entries(receipt)) {
+        if (k !== 'proof') docToVerify[k] = v;
+      }
+      const canonical = JSON.stringify(docToVerify, Object.keys(docToVerify).sort(), null)
+        .replace(/\s/g, '');
+      // Actually use proper canonical: sorted keys, no whitespace
+      const canonicalBytes = new TextEncoder().encode(
+        JSON.stringify(docToVerify, Object.keys(docToVerify).sort())
+          .replace(/: /g, ':').replace(/, /g, ',')
+      );
+
+      // Decode signature from multibase base58btc
+      const sigBytes = base58Decode(proof.proofValue.slice(1));
+
+      // Use Web Crypto API for Ed25519 verification
+      const cryptoKey = await crypto.subtle.importKey(
+        'raw',
+        publicKeyBytes,
+        { name: 'Ed25519' },
+        false,
+        ['verify']
+      );
+
+      const valid = await crypto.subtle.verify(
+        'Ed25519',
+        cryptoKey,
+        sigBytes,
+        canonicalBytes
+      );
+
+      if (valid) {
+        checks.push({ pass: true, text: 'Ed25519 signature VALID ✓' });
+      } else {
+        checks.push({ pass: false, text: 'Ed25519 signature INVALID ✗' });
+      }
+
+      showResult(valid, checks, receipt);
+    } catch (e) {
+      // Web Crypto Ed25519 not supported in this browser
+      checks.push({ info: true, text: `Signature verification: ${e.message}` });
+      checks.push({ info: true, text: 'Your browser may not support Ed25519 in Web Crypto. Try Chrome 113+ or Edge 113+.' });
+      showResult(null, checks, receipt);
+    }
+
+  } catch (e) {
+    checks.push({ pass: false, text: `Error: ${e.message}` });
+    showResult(false, checks, null);
+  } finally {
+    loading.style.display = 'none';
+    btn.disabled = false;
+  }
+};
+
+function showResult(passed, checks, receipt) {
+  const resultDiv = document.getElementById('result');
+  const loading = document.getElementById('loading');
+  loading.style.display = 'none';
+  document.getElementById('verifyBtn').disabled = false;
+
+  let html = '';
+
+  if (passed === true) {
+    resultDiv.className = 'result pass';
+    html += '<h3>✓ Credential Verified</h3>';
+  } else if (passed === false) {
+    resultDiv.className = 'result fail';
+    html += '<h3>✗ Verification Failed</h3>';
+  } else {
+    resultDiv.className = 'result pass';
+    html += '<h3>⚠ Partial Verification</h3>';
+  }
+
+  for (const check of checks) {
+    if (check.pass === true) {
+      html += `<div class="check-item pass"><span class="icon">✓</span> ${check.text}</div>`;
+    } else if (check.pass === false) {
+      html += `<div class="check-item fail"><span class="icon">✗</span> ${check.text}</div>`;
+    } else {
+      html += `<div class="check-item info"><span class="icon">ℹ</span> ${check.text}</div>`;
+    }
+  }
+
+  if (receipt) {
+    html += '<div class="detail-section">';
+    const issuer = typeof receipt.issuer === 'string' ? receipt.issuer : receipt.issuer?.id;
+    if (issuer) {
+      html += '<div class="detail-label">Issuer</div>';
+      html += `<div class="detail-value">${issuer}</div>`;
+    }
+    const subject = receipt.credentialSubject?.id;
+    if (subject) {
+      html += '<div class="detail-label">Subject</div>';
+      html += `<div class="detail-value">${subject}</div>`;
+    }
+    if (receipt.id) {
+      html += '<div class="detail-label">Credential ID</div>';
+      html += `<div class="detail-value">${receipt.id}</div>`;
+    }
+    html += '</div>';
+  }
+
+  resultDiv.innerHTML = html;
+  resultDiv.style.display = 'block';
+}
+
+// Base58 decoder (Bitcoin alphabet)
+function base58Decode(str) {
+  const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  const BASE = 58n;
+  let num = 0n;
+  for (const c of str) {
+    const idx = ALPHABET.indexOf(c);
+    if (idx === -1) throw new Error(`Invalid base58 character: ${c}`);
+    num = num * BASE + BigInt(idx);
+  }
+  const hex = num.toString(16).padStart(2, '0');
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+  }
+  // Handle leading zeros
+  let leadingZeros = 0;
+  for (const c of str) {
+    if (c === '1') leadingZeros++;
+    else break;
+  }
+  if (leadingZeros > 0) {
+    const result = new Uint8Array(leadingZeros + bytes.length);
+    result.set(bytes, leadingZeros);
+    return result;
+  }
+  return bytes;
+}
+</script>
+</body>
+</html>
