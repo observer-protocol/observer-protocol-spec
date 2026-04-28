@@ -144,6 +144,9 @@ from delegation_routes import router as delegation_verify_router, configure as c
 
 # AIP v0.5.1: Remediation (magic link) routes
 from remediation_routes import router as remediation_router, configure as configure_remediation
+
+# Phase 3: NeuralBridge demo counterparty
+from demo_neuralbridge import router as neuralbridge_router, configure as configure_neuralbridge
 from policy_client import consult_policy_engine, PolicyDecision
 
 # --- Spec 3.5: Policy consultation helper for write paths ---
@@ -501,6 +504,12 @@ app.include_router(delegation_verify_router)
 # ============================================================
 configure_remediation(get_db_connection_fn=get_db_connection)
 app.include_router(remediation_router)
+
+# ============================================================
+# PHASE 3: NEURALBRIDGE DEMO COUNTERPARTY
+# ============================================================
+configure_neuralbridge(get_db_connection_fn=get_db_connection)
+app.include_router(neuralbridge_router)
 
 # =======
 # ── AT Verify endpoints (Phase 1B) ────────────────────────────

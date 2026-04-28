@@ -1,0 +1,28 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/did/v1",
+    "https://w3id.org/security/suites/ed25519-2020/v1"
+  ],
+  "id": "did:web:neuralbridge.demo.observerprotocol.org",
+  "verificationMethod": [
+    {
+      "id": "did:web:neuralbridge.demo.observerprotocol.org#key-1",
+      "type": "Ed25519VerificationKey2020",
+      "controller": "did:web:neuralbridge.demo.observerprotocol.org",
+      "publicKeyMultibase": "z6Mkw7EprxbwyWLciWcgRUEZ12TfZ2SPPaHMEU8khddaK3SE"
+    }
+  ],
+  "authentication": [
+    "did:web:neuralbridge.demo.observerprotocol.org#key-1"
+  ],
+  "assertionMethod": [
+    "did:web:neuralbridge.demo.observerprotocol.org#key-1"
+  ],
+  "service": [
+    {
+      "id": "did:web:neuralbridge.demo.observerprotocol.org#api",
+      "type": "AgentInteractionEndpoint",
+      "serviceEndpoint": "https://api.observerprotocol.org/neuralbridge"
+    }
+  ]
+}

@@ -164,7 +164,7 @@ def generate_magic_link(req: MagicLinkRequest):
 
         sovereign_base = os.environ.get(
             "SOVEREIGN_BASE_URL",
-            "https://sovereign.agenticterminal.io"
+            "https://app.agenticterminal.io"
         )
 
         return {
