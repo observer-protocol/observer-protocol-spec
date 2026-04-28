@@ -8,15 +8,27 @@ wraps it in the soft-reject AIP response, and the agent forwards it to its human
 
 import json
 import os
+import secrets
+import string
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 import psycopg2.extras
 from fastapi import APIRouter, HTTPException, Header
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/v1/remediation", tags=["remediation"])
+short_router = APIRouter(tags=["magic-link-short-urls"])
+
+# 62-char URL-safe alphabet (a-z, A-Z, 0-9)
+_SLUG_ALPHABET = string.ascii_letters + string.digits
+_SLUG_LENGTH = 8
+
+
+def _generate_slug() -> str:
+    return ''.join(secrets.choice(_SLUG_ALPHABET) for _ in range(_SLUG_LENGTH))
 
 _get_db_connection = None
 
@@ -148,28 +160,31 @@ def generate_magic_link(req: MagicLinkRequest):
         }
 
         token = _sign_jwt(jwt_payload)
+        slug = _generate_slug()
 
         # Store in DB for single-use enforcement
         cur.execute("""
             INSERT INTO magic_link_tokens
-                (jti, agent_id, agent_did, counterparty_did, counterparty_name,
-                 transaction_context, intro, expires_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                (jti, slug, agent_id, agent_did, counterparty_did, counterparty_name,
+                 transaction_context, intro, token_jwt, expires_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
-            jti, req.agent_id, agent_did, req.counterparty_did,
+            jti, slug, req.agent_id, agent_did, req.counterparty_did,
             req.counterparty_name, json.dumps(transaction_context),
-            intro, expires_at,
+            intro, token, expires_at,
         ))
         conn.commit()
 
-        sovereign_base = os.environ.get(
-            "SOVEREIGN_BASE_URL",
-            "https://app.agenticterminal.io"
+        api_base = os.environ.get(
+            "OP_API_PUBLIC_URL",
+            "https://api.observerprotocol.org"
         )
+        short_url = f"{api_base}/m/{slug}"
 
         return {
             "token": token,
-            "url": f"{sovereign_base}/sovereign/authorize?token={token}",
+            "url": short_url,
+            "slug": slug,
             "intro": intro,
             "transaction_context": transaction_context,
             "expires_at": expires_at.isoformat(),
@@ -377,6 +392,98 @@ def decline_authorization(jti: str):
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
+
+
+# ── Short URL endpoints ──────────────────────────────────────
+
+@short_router.get("/m/{slug}")
+def resolve_short_url(slug: str):
+    """
+    Short URL redirect for magic links.
+
+    User taps https://api.observerprotocol.org/m/k7n2fxj4
+    -> validates slug (not redeemed, not expired)
+    -> redirects to Sovereign authorize page with ?s=slug
+    -> Sovereign page calls /api/v1/remediation/resolve-slug/{slug} to get payload
+
+    No JWT in the URL at any point.
+    """
+    conn = _get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute(
+            "SELECT jti, redeemed_at, declined_at, expires_at FROM magic_link_tokens WHERE slug = %s",
+            (slug,)
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Link not found")
+        if row["redeemed_at"]:
+            raise HTTPException(status_code=410, detail="This authorization link has already been used.")
+        if row["declined_at"]:
+            raise HTTPException(status_code=410, detail="This authorization link was declined.")
+        if row["expires_at"] < datetime.now(timezone.utc):
+            raise HTTPException(status_code=410, detail="This authorization link has expired.")
+
+        sovereign_base = os.environ.get(
+            "SOVEREIGN_BASE_URL",
+            "https://app.agenticterminal.io"
+        )
+        return RedirectResponse(
+            url=f"{sovereign_base}/sovereign/authorize?s={slug}",
+            status_code=302,
+        )
+    finally:
+        cur.close()
+        conn.close()
+
+
+@router.get("/resolve-slug/{slug}")
+def resolve_slug(slug: str):
+    """
+    Exchange a short URL slug for the magic link payload.
+
+    Called by the Sovereign authorize page when it receives ?s=slug
+    instead of ?token=jwt. Returns the same payload as verify-magic-link
+    plus the original JWT token for credential storage auth.
+    """
+    conn = _get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute("""
+            SELECT jti, agent_id, agent_did, counterparty_did, counterparty_name,
+                   transaction_context, intro, token_jwt, redeemed_at, declined_at, expires_at
+            FROM magic_link_tokens WHERE slug = %s
+        """, (slug,))
+        row = cur.fetchone()
+        if not row:
+            return {"valid": False, "payload": None, "error": "Link not found"}
+        if row["redeemed_at"]:
+            return {"valid": False, "payload": None, "error": "Link already used"}
+        if row["declined_at"]:
+            return {"valid": False, "payload": None, "error": "Link was declined"}
+        if row["expires_at"] < datetime.now(timezone.utc):
+            return {"valid": False, "payload": None, "error": "Link expired"}
+
+        tx_context = row["transaction_context"]
+        if isinstance(tx_context, str):
+            tx_context = json.loads(tx_context)
+
+        return {
+            "valid": True,
+            "token": row["token_jwt"],
+            "payload": {
+                "jti": row["jti"],
+                "agent_id": row["agent_id"],
+                "agent_did": row["agent_did"],
+                "transaction": tx_context,
+                "intro": row["intro"],
+                "expires_at": row["expires_at"].isoformat() if row["expires_at"] else None,
+            },
+        }
     finally:
         cur.close()
         conn.close()
