@@ -60,6 +60,31 @@ async function main() {
     stream: false,
   };
 
+  // First, try a raw fetch to see if we get a 402
+  console.log('  Checking if endpoint requires payment...');
+  const rawResp = await fetch(HYPERBOLIC_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'X-Request-ID': requestId,
+    },
+    body: JSON.stringify(requestBody),
+  });
+  console.log(`  Raw response status: ${rawResp.status}`);
+  if (rawResp.status === 402) {
+    const payReq = rawResp.headers.get('x-payment');
+    console.log(`  Payment required! x-payment header: ${payReq ? payReq.slice(0, 100) + '...' : 'none'}`);
+  } else {
+    console.log(`  Response headers:`);
+    for (const [k, v] of rawResp.headers.entries()) {
+      if (k.startsWith('x-')) console.log(`    ${k}: ${v.slice(0, 100)}`);
+    }
+  }
+  console.log('');
+
+  // Now do the payment-wrapped fetch
+  console.log('  Making payment-wrapped request...');
   let response;
   try {
     response = await fetchWithPayment(HYPERBOLIC_URL, {
