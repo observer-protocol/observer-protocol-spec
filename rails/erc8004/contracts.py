@@ -36,9 +36,10 @@ TRON_MAINNET = {
     "chain": "tron",
     "chain_id": "tron:mainnet",
     "rpc_url": "https://api.trongrid.io",
-    "identity_registry": None,  # TBD from m2mregistry.io
-    "reputation_registry": None,
-    "validation_registry": None,
+    # M2M Registry contracts (BofAI deployment). No AINFT SDK dependency.
+    "identity_registry": "TFLvivMdKsk6v2GrwyD2apEr9dU1w7p7Fy",
+    "reputation_registry": "TFbvfLDa4eFqNR5vy24nTrhgZ74HmQ6yat",
+    "validation_registry": "TLCWcW8Qmo7QMNoAKfBhGYfGpHkw1krUEm",
 }
 
 # ── Event signatures (keccak256 topic hashes) ────────────────
