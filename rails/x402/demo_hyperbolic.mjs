@@ -72,6 +72,8 @@ async function main() {
     body: JSON.stringify(requestBody),
   });
   console.log(`  Raw response status: ${rawResp.status}`);
+  const rawBody = await rawResp.text();
+  console.log(`  Raw response body: ${rawBody.slice(0, 500)}`);
   if (rawResp.status === 402) {
     const payReq = rawResp.headers.get('x-payment');
     console.log(`  Payment required! x-payment header: ${payReq ? payReq.slice(0, 100) + '...' : 'none'}`);
@@ -101,8 +103,12 @@ async function main() {
     process.exit(1);
   }
 
-  const body = await response.json();
+  console.log(`  Payment-wrapped status: ${response.status}`);
+  const bodyText = await response.text();
+  let body;
+  try { body = JSON.parse(bodyText); } catch { body = {}; }
   console.log('Inference response received.');
+  console.log(`  Response body: ${bodyText.slice(0, 300)}`);
   if (body.choices && body.choices[0]) {
     console.log(`Model output: ${body.choices[0].message?.content?.slice(0, 200)}`);
   }
