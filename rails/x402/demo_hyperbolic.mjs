@@ -154,7 +154,7 @@ async function main() {
     network: networkCaip2,
     asset_address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
     asset_symbol: 'USDC',
-    amount: paymentResponse.amount || '0',
+    amount: paymentResponse.amount || '100000',  // Default to 0.10 USDC (100000 atomic) if not in response
     resource_uri: HYPERBOLIC_URL,
     facilitator_url: 'https://x402.coinbase.com',
     settlement_tx_hash: paymentResponse.transaction,

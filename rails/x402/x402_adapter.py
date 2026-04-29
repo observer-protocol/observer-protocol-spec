@@ -42,8 +42,13 @@ BASE_SEPOLIA_RPC_URL = "https://sepolia.base.org"
 USDC_BASE_MAINNET = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
 USDC_BASE_SEPOLIA = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
 
-# Coinbase x402 facilitator
-COINBASE_FACILITATOR_URL = "https://x402.coinbase.com"
+# Coinbase x402 facilitator (multiple known endpoints)
+COINBASE_FACILITATOR_URL = "https://x402.org/facilitator"
+COINBASE_FACILITATOR_FALLBACKS = [
+    "https://x402.org/facilitator",
+    "https://x402.coinbase.com",
+    "https://api.x402.org/verify",
+]
 
 # ERC-20 Transfer event topic
 TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
@@ -58,26 +63,42 @@ def verify_via_facilitator(
     """
     Verify an x402 payment via the Coinbase facilitator endpoint.
 
-    Primary verification path. The facilitator confirms the payment
-    was settled and returns settlement details.
+    Primary verification path. Tries multiple known facilitator URLs.
+    The facilitator confirms the payment was settled and returns details.
 
     Returns: (verified, details, error)
     """
-    url = facilitator_url or COINBASE_FACILITATOR_URL
-    try:
-        resp = requests.post(
-            f"{url}/verify",
-            json=payment_payload,
-            headers={"Content-Type": "application/json"},
-            timeout=10,
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            return True, data, None
-        else:
-            return False, None, f"Facilitator returned {resp.status_code}: {resp.text[:200]}"
-    except Exception as e:
-        return False, None, f"Facilitator request failed: {str(e)}"
+    urls_to_try = []
+    if facilitator_url:
+        urls_to_try.append(facilitator_url)
+    urls_to_try.extend(COINBASE_FACILITATOR_FALLBACKS)
+
+    last_error = None
+    for url in urls_to_try:
+        try:
+            # Try both /verify suffix and bare URL
+            for endpoint in [f"{url}/verify", url]:
+                try:
+                    resp = requests.post(
+                        endpoint,
+                        json=payment_payload,
+                        headers={"Content-Type": "application/json"},
+                        timeout=5,
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        return True, data, None
+                    last_error = f"Facilitator {endpoint} returned {resp.status_code}"
+                except requests.exceptions.ConnectionError:
+                    last_error = f"Could not connect to {endpoint}"
+                    continue
+                except Exception as e:
+                    last_error = str(e)
+                    continue
+        except Exception as e:
+            last_error = str(e)
+
+    return False, None, f"All facilitator endpoints failed. Last: {last_error}"
 
 
 # ── On-Chain Verification (Base RPC) ─────────────────────────
@@ -266,7 +287,7 @@ def verify_and_attest(
     )
 
     # Step 2: On-chain verification (secondary / ground truth)
-    chain_network = "sepolia" if "84532" in network else "mainnet"
+    chain_network = "sepolia" if ("84532" in network or "sepolia" in network) else "mainnet"
     onchain_verified, onchain_details, onchain_error = verify_onchain(
         settlement_tx_hash, amount, network=chain_network
     )
