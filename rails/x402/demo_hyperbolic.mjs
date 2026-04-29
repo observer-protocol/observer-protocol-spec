@@ -51,7 +51,7 @@ async function main() {
   // Step 2: Make inference call via x402
   console.log('Step 1: Making inference call to Hyperbolic via x402...');
   const requestBody = {
-    model: 'meta-llama/Meta-Llama-3.1-405B-Instruct',
+    model: 'deepseek-ai/DeepSeek-R1',
     messages: [
       { role: 'user', content: 'What is Observer Protocol? Answer in one sentence.' }
     ],
