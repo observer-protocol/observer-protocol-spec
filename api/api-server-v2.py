@@ -4231,7 +4231,8 @@ def list_delegation_requests():
     try:
         cursor.execute("""
             SELECT dr.request_id, dr.agent_id, dr.org_did, dr.requested_by,
-                   dr.status, dr.created_at,
+                   dr.status, dr.created_at, dr.expiry, dr.spending_limits,
+                   dr.permissions,
                    oa.agent_name, oa.alias
             FROM delegation_requests dr
             LEFT JOIN observer_agents oa ON dr.agent_id = oa.agent_id
@@ -4244,6 +4245,8 @@ def list_delegation_requests():
             req = dict(r)
             if req.get("created_at"):
                 req["created_at"] = req["created_at"].isoformat()
+            if req.get("expiry"):
+                req["expiry"] = req["expiry"].isoformat()
             requests.append(req)
         return {"requests": requests, "count": len(requests)}
     finally:
