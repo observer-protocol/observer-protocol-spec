@@ -1,0 +1,46 @@
+{
+  "name": "@observer-protocol/sdk",
+  "version": "0.2.0",
+  "description": "Observer Protocol SDK - Agent identity, delegation, x402 verification, and chargeback prevention for the agentic economy",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "observer-protocol",
+    "agent-identity",
+    "kya",
+    "know-your-agent",
+    "w3c-did",
+    "verifiable-credentials",
+    "x402",
+    "delegation",
+    "chargeback-prevention",
+    "agentic-economy"
+  ],
+  "author": "Observer Protocol, Inc.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/observer-protocol/observer-protocol-spec.git",
+    "directory": "sdk/typescript"
+  },
+  "homepage": "https://observerprotocol.org",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}
