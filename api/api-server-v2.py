@@ -4118,6 +4118,7 @@ class DelegationRequest(BaseModel):
     rails: Optional[List[str]] = None
     spending_limits: Optional[Dict[str, str]] = None
     expiration: Optional[str] = None
+    attestation_tier: Optional[str] = "enterprise"
 
 class DelegationApprovalRequest(BaseModel):
     """Request body for approving delegation."""
@@ -4214,13 +4215,14 @@ def request_delegation(request: DelegationRequest):
         cursor.execute("""
             INSERT INTO delegation_requests
             (request_id, agent_id, org_did, requested_by, status, created_at,
-             spending_limits, permissions, expiry)
-            VALUES (%s, %s, %s, %s, 'pending_approval', NOW(), %s, %s, %s)
+             spending_limits, permissions, expiry, attestation_tier)
+            VALUES (%s, %s, %s, %s, 'pending_approval', NOW(), %s, %s, %s, %s)
         """, (
             request_id, request.agent_id, request.org_did, request.requested_by,
             json.dumps(request.spending_limits) if request.spending_limits else None,
             json.dumps(request.scope) if request.scope else None,
             expiry_val,
+            request.attestation_tier or 'enterprise',
         ))
         
         conn.commit()
@@ -4250,7 +4252,7 @@ def list_delegation_requests():
         cursor.execute("""
             SELECT dr.request_id, dr.agent_id, dr.org_did, dr.requested_by,
                    dr.status, dr.created_at, dr.expiry, dr.spending_limits,
-                   dr.permissions,
+                   dr.permissions, dr.attestation_tier,
                    oa.agent_name, oa.alias
             FROM delegation_requests dr
             LEFT JOIN observer_agents oa ON dr.agent_id = oa.agent_id
