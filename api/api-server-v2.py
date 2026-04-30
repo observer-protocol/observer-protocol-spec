@@ -4114,6 +4114,10 @@ class DelegationRequest(BaseModel):
     agent_id: str
     org_did: str
     requested_by: str
+    scope: Optional[List[str]] = None
+    rails: Optional[List[str]] = None
+    spending_limits: Optional[Dict[str, str]] = None
+    expiration: Optional[str] = None
 
 class DelegationApprovalRequest(BaseModel):
     """Request body for approving delegation."""
@@ -4198,12 +4202,26 @@ def request_delegation(request: DelegationRequest):
         # Generate request ID
         request_id = f"del-req-{secrets.token_hex(4)}"
         
-        # Create delegation request
+        # Create delegation request with full scope
+        expiry_val = None
+        if request.expiration:
+            try:
+                from datetime import datetime as _dt
+                expiry_val = _dt.fromisoformat(request.expiration.replace("Z", "+00:00"))
+            except:
+                pass
+
         cursor.execute("""
-            INSERT INTO delegation_requests 
-            (request_id, agent_id, org_did, requested_by, status, created_at)
-            VALUES (%s, %s, %s, %s, 'pending_approval', NOW())
-        """, (request_id, request.agent_id, request.org_did, request.requested_by))
+            INSERT INTO delegation_requests
+            (request_id, agent_id, org_did, requested_by, status, created_at,
+             spending_limits, permissions, expiry)
+            VALUES (%s, %s, %s, %s, 'pending_approval', NOW(), %s, %s, %s)
+        """, (
+            request_id, request.agent_id, request.org_did, request.requested_by,
+            json.dumps(request.spending_limits) if request.spending_limits else None,
+            json.dumps(request.scope) if request.scope else None,
+            expiry_val,
+        ))
         
         conn.commit()
         
