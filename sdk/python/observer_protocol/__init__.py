@@ -1,37 +1,51 @@
 """
 Observer Protocol Python SDK
 
-Register agents, verify transactions, manage attestations, and retrieve
-Verified Agent Credentials on Observer Protocol.
+Agent identity, delegation, x402 verification, and chargeback
+prevention for the agentic economy.
 
 Usage:
     from observer_protocol import ObserverClient
 
     client = ObserverClient()
-    agent = client.register_agent(public_key="your_ed25519_hex_key")
-    client.verify_agent(agent.agent_id, signed_challenge)
-    vac = client.get_vac(agent.agent_id)
+    pub, priv = ObserverClient.generate_keypair()
+    agent = client.register_agent(public_key=pub, agent_name="My Agent")
+    challenge = client.request_challenge(agent.agent_id)
+    sig = ObserverClient.sign_challenge(priv, challenge.nonce)
+    client.verify_agent(agent.agent_id, sig)
 """
 
 from observer_protocol.client import ObserverClient
 from observer_protocol.models import (
     Agent,
     Attestation,
-    AuditActivity,
+    AuditEventResult,
     ChainVerification,
     Challenge,
+    Delegation,
+    ERC8004Summary,
+    MagicLink,
+    ObserverError,
     TrustScore,
-    VAC,
+    TrustScoreComponents,
+    X402Credential,
+    X402Verification,
 )
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"
 __all__ = [
     "ObserverClient",
     "Agent",
     "Attestation",
-    "AuditActivity",
+    "AuditEventResult",
     "ChainVerification",
     "Challenge",
+    "Delegation",
+    "ERC8004Summary",
+    "MagicLink",
+    "ObserverError",
     "TrustScore",
-    "VAC",
+    "TrustScoreComponents",
+    "X402Credential",
+    "X402Verification",
 ]
