@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://observerprotocol.org/schemas/solana/v1.json",
+  "title": "Solana Payment Credential Schema v1",
+  "description": "W3C Verifiable Credential schema for Solana payments (SOL + SPL tokens including USDC/USDT). Verified via Solana RPC against on-chain transaction data.",
+  "type": "object",
+  "required": ["@context", "id", "type", "issuer", "validFrom", "validUntil", "credentialSubject", "credentialSchema", "proof"],
+  "properties": {
+    "@context": {
+      "type": "array",
+      "minItems": 2,
+      "contains": { "enum": ["https://www.w3.org/ns/credentials/v2"] }
+    },
+    "id": { "type": "string", "pattern": "^urn:uuid:" },
+    "type": {
+      "type": "array",
+      "minItems": 2,
+      "allOf": [
+        { "contains": { "const": "VerifiableCredential" } },
+        { "contains": { "const": "SolanaPaymentCredential" } }
+      ]
+    },
+    "issuer": { "type": "string", "pattern": "^did:" },
+    "validFrom": { "type": "string", "format": "date-time" },
+    "validUntil": { "type": "string", "format": "date-time" },
+    "credentialSubject": {
+      "type": "object",
+      "required": ["id", "txSignature", "senderAddress", "recipientAddress", "amount", "asset", "network"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^did:", "description": "The payer agent's DID" },
+        "txSignature": { "type": "string", "description": "Solana transaction signature (base58)" },
+        "senderAddress": { "type": "string", "description": "Sender Solana wallet address (base58)" },
+        "recipientAddress": { "type": "string", "description": "Recipient Solana wallet address (base58)" },
+        "amount": { "type": "string", "description": "Amount in atomic units (lamports for SOL, raw units for SPL)" },
+        "amountHuman": { "type": "string", "description": "Human-readable amount (e.g. '1.00' USDC)" },
+        "asset": {
+          "type": "object",
+          "properties": {
+            "symbol": { "type": "string", "description": "Token symbol (SOL, USDC, USDT)" },
+            "mint": { "type": "string", "description": "SPL token mint address (null for SOL)" },
+            "decimals": { "type": "integer" }
+          }
+        },
+        "network": { "type": "string", "enum": ["mainnet-beta", "devnet", "testnet"] },
+        "slot": { "type": "integer", "description": "Slot number of the transaction" },
+        "blockTime": { "type": "integer", "description": "Unix timestamp of the block" },
+        "confirmationStatus": { "type": "string", "enum": ["finalized", "confirmed", "processed"] },
+        "counterparty": { "type": "string", "description": "DID or address of the counterparty" },
+        "agentId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
+    "credentialSchema": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^https://observerprotocol.org/schemas/" },
+        "type": { "const": "JsonSchema" }
+      }
+    },
+    "proof": {
+      "type": "object",
+      "required": ["type", "created", "verificationMethod", "proofPurpose", "proofValue"],
+      "properties": {
+        "type": { "const": "Ed25519Signature2020" },
+        "created": { "type": "string", "format": "date-time" },
+        "verificationMethod": { "type": "string", "pattern": "^did:[a-z]+:.+#.+" },
+        "proofPurpose": { "const": "assertionMethod" },
+        "proofValue": { "type": "string", "pattern": "^z[1-9A-HJ-NP-Za-km-z]+$" }
+      }
+    }
+  },
+  "additionalProperties": false
+}

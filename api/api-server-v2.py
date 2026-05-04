@@ -157,6 +157,14 @@ try:
 except ImportError:
     _x402_available = False
 
+# Solana rail adapter
+_sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'rails', 'solana'))
+try:
+    from solana_routes import router as solana_router, configure as configure_solana
+    _solana_available = True
+except ImportError:
+    _solana_available = False
+
 # ERC-8004 / TRC-8004 integration
 _sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'rails', 'erc8004'))
 try:
@@ -536,6 +544,14 @@ if _x402_available:
     configure_x402(get_db_connection_fn=get_db_connection)
     app.include_router(x402_router)
     print("x402 rail adapter mounted: /api/v1/x402/*")
+
+# ============================================================
+# SOLANA RAIL ADAPTER
+# ============================================================
+if _solana_available:
+    configure_solana(get_db_connection_fn=get_db_connection)
+    app.include_router(solana_router)
+    print("Solana rail adapter mounted: /api/v1/solana/*")
 
 # ============================================================
 # ERC-8004 / TRC-8004 INTEGRATION
