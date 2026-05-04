@@ -119,8 +119,10 @@ def fetch_transaction(tx_signature: str, max_retries: int = 2) -> dict:
                 # Check confirmation status
                 meta = result.get("meta", {})
                 confirmation_status = result.get("confirmationStatus") or meta.get("confirmationStatus")
-                
-                if confirmation_status != "finalized":
+
+                # If we requested commitment=finalized and got a result, the tx IS finalized
+                # (public RPC often omits confirmationStatus field even for finalized txs)
+                if confirmation_status and confirmation_status != "finalized":
                     raise ValueError(f"Transaction not finalized. Status: {confirmation_status}")
                 
                 if meta.get("err"):
@@ -266,7 +268,9 @@ def verify_solana_transaction(
     try:
         # Fetch transaction
         tx_data = fetch_transaction(tx_signature)
-        
+        slot = tx_data.get("slot")
+        block_time = tx_data.get("blockTime")
+
         # Get token metadata
         token_upper = mint.upper()
         if token_upper in TOKEN_METADATA:
@@ -317,6 +321,8 @@ def verify_solana_transaction(
                 "token": "SOL",
                 "token_symbol": "SOL",
                 "token_decimals": 9,
+                "slot": slot,
+                "block_time": block_time,
                 "error": None
             }
         
@@ -356,6 +362,8 @@ def verify_solana_transaction(
                 "token": mint,
                 "token_symbol": symbol,
                 "token_decimals": decimals,
+                "slot": slot,
+                "block_time": block_time,
                 "error": None
             }
     
