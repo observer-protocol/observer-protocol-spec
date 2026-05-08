@@ -985,7 +985,7 @@ def register_agent(
                 "3. Badge available at: GET /observer/badge/{agent_id}.svg",
                 f"4. DID Document at: GET /agents/{agent_id}/did.json",
             ],
-            "badge_url": f"https://api.agenticterminal.ai/observer/badge/{agent_id}.svg",
+            "badge_url": f"https://api.observerprotocol.org/observer/badge/{agent_id}.svg",
             "profile_url": f"https://observerprotocol.org/agents/{agent_id}",
             "did_document_url": f"https://observerprotocol.org/agents/{agent_id}/did.json",
         }
@@ -2090,7 +2090,7 @@ def _generate_not_found_badge_svg() -> str:
 def get_agent_badge(agent_id: str):
     """
     Return a dynamic SVG verification badge for a registered Observer Protocol agent.
-    Embed anywhere: <img src="https://api.agenticterminal.ai/observer/badge/AGENT_ID.svg">
+    Embed anywhere: <img src="https://api.observerprotocol.org/observer/badge/AGENT_ID.svg">
     """
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -2197,7 +2197,7 @@ def lookup_agent_by_hash(public_key_hash: str):
             "verified_at": agent["verified_at"].isoformat() if agent["verified_at"] else None,
             "first_seen": agent["created_at"].isoformat(),
             "verified_tx_count": tx_count,
-            "badge_url": f"https://api.agenticterminal.ai/observer/badge/{agent['agent_id']}.svg",
+            "badge_url": f"https://api.observerprotocol.org/observer/badge/{agent['agent_id']}.svg",
             "profile_url": f"https://observerprotocol.org/agents/{agent['agent_id']}"
         }
     except HTTPException:
